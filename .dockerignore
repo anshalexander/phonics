@@ -10,6 +10,9 @@ audio_aria_backup/
 # Recording markers
 audio/.recorded_*
 
+# Internal note shipped alongside audio — not user-facing
+audio/HOW_TO_USE_YOUR_OWN_VOICE.txt
+
 # Local launcher — not used in container
 start.command
 

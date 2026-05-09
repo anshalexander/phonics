@@ -694,10 +694,17 @@ const Audio = (() => {
 // =====================================================================
 // AudioBus — single source of truth for "what's currently playing".
 // Fixes the double-voice bug: any new sound cancels the previous one.
+//
+// Tracks BOTH HTMLAudioElement (for MP3/WAV) AND a list of Web Audio
+// nodes (BufferSources, Oscillators) AND scheduled setTimeout IDs that
+// would create more nodes (e.g. Sfx.happy() chains 4 tones via timeouts).
+// stopAll() must clean ALL of these or in-flight sound leaks past the
+// "stop and switch" contract — which is how /s/ used to overlap with /a/.
 // =====================================================================
 const AudioBus = (() => {
-  let currentEl = null;       // HTMLAudioElement currently playing (if any)
-  let currentSrc = null;      // Web Audio BufferSource currently playing
+  let currentEl = null;        // HTMLAudioElement (mp3/wav playback)
+  let activeNodes = [];        // Web Audio nodes with .stop() (oscillators/sources)
+  let activeTimers = [];       // setTimeout IDs that schedule further nodes
 
   function stopAll() {
     if (currentEl) {
@@ -705,18 +712,30 @@ const AudioBus = (() => {
       try { currentEl.src = ''; } catch (e) {}
       currentEl = null;
     }
-    if (currentSrc) {
-      try { currentSrc.stop(); } catch (e) {}
-      try { currentSrc.disconnect(); } catch (e) {}
-      currentSrc = null;
-    }
+    activeNodes.forEach(n => {
+      try { n.stop(); } catch (e) {}
+      try { n.disconnect(); } catch (e) {}
+    });
+    activeNodes = [];
+    activeTimers.forEach(id => { try { clearTimeout(id); } catch (e) {} });
+    activeTimers = [];
     try { speechSynthesis.cancel(); } catch (e) {}
   }
 
-  function setEl(el)   { currentEl  = el; }
-  function setSrc(src) { currentSrc = src; }
+  function setEl(el) { currentEl = el; }
 
-  return { stopAll, setEl, setSrc };
+  function addNode(n) {
+    if (!n) return;
+    activeNodes.push(n);
+    // Auto-remove from the active list when natural playback ends so the
+    // array doesn't grow unbounded across a long session.
+    n.onended = () => { activeNodes = activeNodes.filter(x => x !== n); };
+  }
+
+  function addTimer(id) { activeTimers.push(id); }
+
+  // Backwards-compat alias used by playVowel (predates the multi-node design).
+  return { stopAll, setEl, setSrc: addNode, addNode, addTimer };
 })();
 
 const Speech = (() => {
@@ -814,25 +833,39 @@ const Speech = (() => {
     'an','at','on','in','it','up','go',
   ]);
 
+  // Walk one entry's extension list in order; return the first URL that
+  // probes successfully (or null). Used in parallel by loadSpeechAudio.
+  async function findFirst(urls) {
+    for (const url of urls) {
+      if (await probe(url)) return url;
+    }
+    return null;
+  }
+
   async function loadSpeechAudio() {
-    let pCount = 0, wCount = 0;
     const phraseExts = ['mp3', 'wav', 'm4a', 'ogg'];
     const trimExts   = ['wav', 'mp3', 'm4a', 'ogg'];  // trimmed words → try .wav first
     const sightExts  = ['mp3', 'wav', 'm4a', 'ogg'];  // sight words → only .mp3 exists
-    for (const [text, key] of Object.entries(PHRASE_KEYS)) {
-      for (const ext of phraseExts) {
-        const url = 'audio/p_' + key + '.' + ext;
-        if (await probe(url)) { phraseAudio[text] = url; pCount++; break; }
-      }
-    }
-    for (const w of WORD_LIST) {
+    // Probe in parallel — sequential probing took up to a minute on
+    // slow disks and let the user race the loading state.
+    const phraseJobs = Object.entries(PHRASE_KEYS).map(async ([text, key]) => {
+      const url = await findFirst(phraseExts.map(ext => 'audio/p_' + key + '.' + ext));
+      if (url) phraseAudio[text] = url;
+      return !!url;
+    });
+    const wordJobs = WORD_LIST.map(async (w) => {
       const safe = w.toLowerCase().replace(/[^a-z0-9_-]/g, '');
       const exts = SIGHT_MP3_ONLY.has(w.toLowerCase()) ? sightExts : trimExts;
-      for (const ext of exts) {
-        const url = 'audio/word_' + safe + '.' + ext;
-        if (await probe(url)) { wordAudio[w.toLowerCase()] = url; wCount++; break; }
-      }
-    }
+      const url = await findFirst(exts.map(ext => 'audio/word_' + safe + '.' + ext));
+      if (url) wordAudio[w.toLowerCase()] = url;
+      return !!url;
+    });
+    const [phraseResults, wordResults] = await Promise.all([
+      Promise.all(phraseJobs),
+      Promise.all(wordJobs),
+    ]);
+    const pCount = phraseResults.filter(Boolean).length;
+    const wCount = wordResults.filter(Boolean).length;
     console.log('[Speech] loaded ' + pCount + ' phrase + ' + wCount + ' word audio files');
   }
 
@@ -882,12 +915,20 @@ const Speech = (() => {
     return webSpeechSpeak(text, opts);
   }
 
-  function setMuted(m) { muted = m; if (m) try { speechSynthesis.cancel(); } catch (e) {} }
+  // Muting must stop CURRENT playback, not just block future speakers.
+  // Previously this only cancelled speechSynthesis (Web Speech) — any
+  // already-playing Aria MP3 kept going. Now route through AudioBus.
+  function setMuted(m) { muted = m; if (m) AudioBus.stopAll(); }
   function isMuted() { return muted; }
   return { speak, setMuted, isMuted, loadSpeechAudio };
 })();
 
 const Sfx = (() => {
+  // Each tone registers its oscillator with AudioBus so a subsequent
+  // letter tap (which calls stopAll) cancels in-flight earcons. Without
+  // this, Sfx.happy() — a 4-tone arpeggio over ~440 ms — would keep
+  // ringing while the next round's "Listen!" plays, producing the
+  // "double voice" overlap that started this whole project.
   function tone(freq, dur, type='sine', gain=0.15, slide=0) {
     const c = Audio.ensure(); if (!c) return;
     const o = c.createOscillator(); const g = c.createGain();
@@ -897,12 +938,21 @@ const Sfx = (() => {
     g.gain.linearRampToValueAtTime(0, c.currentTime+dur);
     o.connect(g); g.connect(c.destination);
     o.start(); o.stop(c.currentTime+dur+0.05);
+    AudioBus.addNode(o);
+  }
+  // Multi-tone earcons schedule via setTimeout — register the timer too
+  // so stopAll() can prevent the deferred tones from firing after a tap.
+  function chain(...steps) {
+    steps.forEach(([delayMs, fn]) => {
+      if (delayMs <= 0) { fn(); return; }
+      AudioBus.addTimer(setTimeout(fn, delayMs));
+    });
   }
   return {
-    chime: () => { tone(880,0.18); setTimeout(()=>tone(1320,0.22),120); },
+    chime: () => chain([0, () => tone(880,0.18)], [120, () => tone(1320,0.22)]),
     pop:   () => tone(540,0.08,'triangle',0.2),
-    happy: () => [523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,0.18,'triangle',0.18),i*110)),
-    sad:   () => { tone(280,0.18,'sine',0.15); setTimeout(()=>tone(220,0.22,'sine',0.15),120); },
+    happy: () => [523,659,784,1047].forEach((f,i) => chain([i*110, () => tone(f,0.18,'triangle',0.18)])),
+    sad:   () => chain([0, () => tone(280,0.18,'sine',0.15)], [120, () => tone(220,0.22,'sine',0.15)]),
     whoosh:() => tone(220,0.18,'sawtooth',0.05,200),
   };
 })();
@@ -961,6 +1011,11 @@ const Phonemes = (() => {
   function playFricative(loFreq, hiFreq, dur, peak=0.32, t0Off=0) {
     return new Promise(resolve => {
       const c = Audio.ensure(); if (!c) return resolve();
+      // Fricatives (s, sh, th, f, v, z, x, h, ck) used to skip AudioBus —
+      // they would keep playing while the next sound started, producing
+      // the canonical /s/-overlapping-/a/ double-voice bug. Now stopAll
+      // first, register the source.
+      AudioBus.stopAll();
       const t0 = c.currentTime + t0Off;
       const src = c.createBufferSource();
       src.buffer = noiseBuf(c, dur + 0.05);
@@ -971,6 +1026,7 @@ const Phonemes = (() => {
       const out = envelopeGain(c, t0, dur, peak);
       src.connect(bp).connect(out).connect(c.destination);
       src.start(t0); src.stop(t0 + dur + 0.05);
+      AudioBus.addNode(src);
       setTimeout(resolve, (t0Off + dur) * 1000 + 30);
     });
   }
@@ -978,6 +1034,11 @@ const Phonemes = (() => {
   function playPlosive(burstFilter, schwa = [700,1500,2400], t0Off=0) {
     return new Promise(async resolve => {
       const c = Audio.ensure(); if (!c) return resolve();
+      // Same AudioBus discipline as fricatives. Note: the inner
+      // playVowel call below ALSO calls stopAll — that's redundant but
+      // harmless; the burst (35 ms) finishes long before the schwa
+      // begins (100 ms offset).
+      AudioBus.stopAll();
       const t0 = c.currentTime + t0Off + 0.05;
       const burst = noiseBuf(c, 0.035);
       const d = burst.getChannelData(0);
@@ -987,6 +1048,7 @@ const Phonemes = (() => {
       const g = c.createGain(); g.gain.value = 0.6;
       src.connect(filt).connect(g).connect(c.destination);
       src.start(t0);
+      AudioBus.addNode(src);
       await playVowel(schwa, 0.16, 220, t0Off + 0.10, 0.30);
       resolve();
     });
@@ -995,6 +1057,7 @@ const Phonemes = (() => {
   function playNasal(formant, dur, t0Off=0, peak=0.5) {
     return new Promise(resolve => {
       const c = Audio.ensure(); if (!c) return resolve();
+      AudioBus.stopAll();
       const t0 = c.currentTime + t0Off;
       const osc = c.createOscillator();
       osc.type = 'sawtooth'; osc.frequency.value = 200;
@@ -1003,6 +1066,7 @@ const Phonemes = (() => {
       const g = envelopeGain(c, t0, dur, peak);
       osc.connect(lp).connect(bp).connect(g).connect(c.destination);
       osc.start(t0); osc.stop(t0 + dur + 0.03);
+      AudioBus.addNode(osc);
       setTimeout(resolve, (t0Off + dur) * 1000 + 30);
     });
   }
@@ -1096,11 +1160,13 @@ const Phonemes = (() => {
     return fn ? fn() : Promise.resolve();
   }
 
-  // Short, snappy version for the blending lab (m4) and m6 phoneme prompts.
-  // Prefers a real-voice recording (Anshul's own /p/ /s/ /æ/ files saved
-  // by record_phonemes.py — short, ~1-1.5 sec, perfect for blending and
-  // for m6 where a long teacher MP3 would give away the answer).
-  // Falls back to formant synth recipes if no recording exists yet.
+  // "Short" only relative to playOne when no real-voice recording exists:
+  // both prefer realAudio[L] when present. The actual length therefore
+  // depends on the recording — Anshul's typical phoneme is ~1-1.5 sec
+  // (snappy, good for blending), while the original Aria-TTS placeholder
+  // was 4 sec ("P, like pop. P, like pin.") and would drag blending.
+  // When realAudio is missing we drop straight to the formant-synth
+  // recipe, which is always ~0.5 sec.
   function playShort(letter) {
     const L = letter.toLowerCase();
     if (realAudio[L]) return playRecorded(L);
@@ -1145,7 +1211,11 @@ const Phonemes = (() => {
     const letters = Object.keys(RECIPES);
     const exts = ['mp3', 'wav', 'm4a', 'ogg'];
     let loaded = 0;
-    for (const L of letters) {
+    // Probe letters in PARALLEL — sequential was 32 letters × up to
+    // 1.5 s timeout = potential 48-second blocking pass during which a
+    // fast-clicking user could navigate to m6 and hear the synth
+    // fallback before the real-voice MP3 finished probing.
+    await Promise.all(letters.map(async (L) => {
       for (const ext of exts) {
         const url = 'audio/' + L + '.' + ext;
         if (await probeUrl(url)) {
@@ -1154,7 +1224,7 @@ const Phonemes = (() => {
           break;
         }
       }
-    }
+    }));
     console.log('[Phonics] loaded ' + loaded + ' real-voice files from audio/');
     // bubble up so UI can refresh recording dots etc.
     document.dispatchEvent(new CustomEvent('phonics:audio-loaded', { detail: { count: loaded } }));
@@ -1177,6 +1247,10 @@ const Recorder = (() => {
   let chunks = [];
   let activeLetter = null;
   let onDoneCb = null;
+  // Auto-stop timer tracked at module scope so a manual stop or a fresh
+  // start can clear it. Previously the auto-stop closure would still
+  // fire 2.5 s later and could truncate a SUBSEQUENT recording.
+  let autoStopTimer = null;
 
   async function ensureStream() {
     if (stream) return stream;
@@ -1189,7 +1263,22 @@ const Recorder = (() => {
     }
   }
 
+  // Release the mic so the browser tab's red recording indicator turns
+  // off between recordings. Critical for a kids' app on a tablet — kids
+  // (and parents) shouldn't see the mic-on dot stay lit all session.
+  function releaseStream() {
+    if (stream) {
+      try { stream.getTracks().forEach(t => t.stop()); } catch (e) {}
+      stream = null;
+    }
+  }
+
+  function clearAutoStop() {
+    if (autoStopTimer) { clearTimeout(autoStopTimer); autoStopTimer = null; }
+  }
+
   async function start(letter, onDone) {
+    clearAutoStop();
     if (mediaRecorder) await stop();
     activeLetter = letter;
     onDoneCb = onDone;
@@ -1197,10 +1286,13 @@ const Recorder = (() => {
     if (!s) { onDone && onDone(false); return; }
     chunks = [];
     try {
+      // Use the browser's preferred mimeType so Safari/Chrome both work
+      // (default differs: Safari → audio/mp4, Chrome → audio/webm).
       mediaRecorder = new MediaRecorder(s);
+      const mimeType = mediaRecorder.mimeType || 'audio/webm';
       mediaRecorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
       mediaRecorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const blob = new Blob(chunks, { type: mimeType });
         const arr = await blob.arrayBuffer();
         const c = Audio.ensure();
         try {
@@ -1210,8 +1302,13 @@ const Recorder = (() => {
         } catch (e) {
           console.warn('decode failed', e);
           onDoneCb && onDoneCb(false);
+        } finally {
+          chunks = [];
+          mediaRecorder = null;
+          // Always release the mic after a recording finalises so the
+          // browser's red dot turns off until the next start().
+          releaseStream();
         }
-        mediaRecorder = null;
       };
       mediaRecorder.start();
     } catch (e) {
@@ -1222,16 +1319,31 @@ const Recorder = (() => {
 
   function stop() {
     return new Promise(resolve => {
-      if (!mediaRecorder) return resolve();
+      clearAutoStop();
+      if (!mediaRecorder || mediaRecorder.state !== 'recording') {
+        // Nothing in flight — make sure the mic is released and resolve.
+        releaseStream();
+        return resolve();
+      }
       const orig = mediaRecorder.onstop;
-      mediaRecorder.onstop = async (...a) => { await orig(...a); resolve(); };
+      // try/finally so a decode failure inside orig() doesn't leave
+      // stop()'s caller awaiting forever.
+      mediaRecorder.onstop = async (...a) => {
+        try { if (orig) await orig(...a); }
+        finally { resolve(); }
+      };
       try { mediaRecorder.stop(); } catch (e) { resolve(); }
     });
   }
 
+  function scheduleAutoStop(ms, fn) {
+    clearAutoStop();
+    autoStopTimer = setTimeout(() => { autoStopTimer = null; fn && fn(); }, ms);
+  }
+
   function isRecording() { return !!mediaRecorder && mediaRecorder.state === 'recording'; }
 
-  return { start, stop, isRecording };
+  return { start, stop, scheduleAutoStop, isRecording };
 })();
 
 // =====================================================================
@@ -1504,6 +1616,13 @@ let currentScene = 'cover';
 const completedLessons = new Set();
 
 function showScene(name) {
+  // Cut any in-flight audio AND any deferred lesson-entry prompt before
+  // switching scenes — otherwise tapping Home mid-prompt left "Tap any
+  // letter..." playing while staring at the lesson grid.
+  AudioBus.stopAll();
+  if (typeof _lessonEntryTimer !== 'undefined' && _lessonEntryTimer) {
+    clearTimeout(_lessonEntryTimer); _lessonEntryTimer = null;
+  }
   document.querySelectorAll('.scene').forEach(s => {
     if (s.dataset.scene === name) s.classList.add('active');
     else s.classList.remove('active');
@@ -1525,10 +1644,31 @@ function showScene(name) {
   refreshRecDots();
 }
 
+// Track lesson-entry timer so navigating away cancels the prompt.
+let _lessonEntryTimer = null;
+
 function enterLesson(id) {
   showScene(id);
   const M = MODULES.find(m => m.id === id);
-  setTimeout(() => {
+  // Reset stale per-card highlights from a previous visit (rhyme,
+  // firstSound, blend modules add .correct/.wrong/.heard but never
+  // clean them, so re-entering a lesson showed pre-coloured cards).
+  const scene = document.querySelector(`section[data-scene="${id}"]`);
+  if (scene) {
+    scene.querySelectorAll('.correct, .wrong, .heard').forEach(el => {
+      el.classList.remove('correct', 'wrong', 'heard');
+    });
+  }
+  // Reset blend lab UI so a stale "sat" from last session doesn't
+  // remain visible when re-entering m4. Use replaceChildren() (not
+  // innerHTML) per the project's XSS-defense convention.
+  if (M && M.type === 'blend') {
+    delete blendState[id];
+    const lab = document.getElementById(id + '-lab');
+    if (lab) lab.replaceChildren();
+  }
+  if (_lessonEntryTimer) { clearTimeout(_lessonEntryTimer); _lessonEntryTimer = null; }
+  _lessonEntryTimer = setTimeout(() => {
     if (M.type === 'letters') {
       Speech.speak("Tap any letter to hear its sound.", { rate: 0.9 });
     } else if (M.type === 'firstSound') {
@@ -1567,12 +1707,17 @@ function startFirstSoundRound(moduleId, idx) {
     Sfx.happy();
     Speech.speak("All done! You found every sound!", { rate: 0.9, pitch: 1.1 });
     completedLessons.add(moduleId);
+    // The lesson-done click handler stamps the menu card; the auto-
+    // completion path was missing this stamp so the green ✓ never
+    // appeared after finishing m6 by getting all rounds right.
+    document.querySelector(`.lesson-card[data-id="${moduleId}"]`)?.classList.add('done');
     setTimeout(() => showScene('menu'), 2200);
     return;
   }
   firstSoundState[moduleId] = idx;
   const round = M.rounds[idx];
-  document.getElementById(moduleId + '-target').textContent = '"' + (round.target === 'a' ? 'a' : round.target === 'i' ? 'i' : round.target) + '"';
+  // (Both ternary branches return the same character — kept for clarity.)
+  document.getElementById(moduleId + '-target').textContent = '"' + round.target + '"';
   const cards = document.getElementById(moduleId + '-cards');
   // shuffle
   const opts = [...round.options].sort(() => Math.random() - 0.5);
@@ -1618,6 +1763,12 @@ document.addEventListener('click', async (e) => {
   if (!btn) return;
   const action = btn.dataset.action;
   const id = btn.dataset.id;
+  // Wrap the entire body so an exception in any branch (e.g. undefined
+  // dataset attribute, transient audio failure) doesn't become an
+  // unhandled rejection — which previously caused the user-visible
+  // "I tap and nothing happens sometimes" bug. We log to console so
+  // problems are still discoverable in DevTools.
+  try {
 
   // ---- letter sound modules ----
   if (action === 'say-letter') {
@@ -1647,8 +1798,10 @@ document.addEventListener('click', async (e) => {
       btn.classList.remove('recording');
       if (success) refreshRecDots();
     });
-    // auto-stop after 2.5 seconds
-    setTimeout(async () => {
+    // Auto-stop after 2.5 seconds. Tracked inside Recorder so a fresh
+    // start() or manual stop cancels it (previously the closure could
+    // fire later and truncate a different letter's recording).
+    Recorder.scheduleAutoStop(2500, async () => {
       if (Recorder.isRecording()) {
         await Recorder.stop();
         btn.classList.remove('recording');
@@ -1656,7 +1809,7 @@ document.addEventListener('click', async (e) => {
         Sfx.chime();
         setTimeout(() => Phonemes.playOne(L), 200);
       }
-    }, 2500);
+    });
   }
 
   // ---- first sound round pick ----
@@ -1745,7 +1898,9 @@ document.addEventListener('click', async (e) => {
     btn.classList.add('flash');
     setTimeout(() => btn.classList.remove('flash'), 400);
     Sfx.pop();
-    Speech.speak(w, { rate: 0.7, pitch: 1.05 });
+    // Await so a follow-up handler (e.g. another await chain mid-rhyme)
+    // doesn't interleave with this playback.
+    await Speech.speak(w, { rate: 0.7, pitch: 1.05 });
   }
 
   // ---- digraphs ----
@@ -1771,6 +1926,11 @@ document.addEventListener('click', async (e) => {
     document.querySelector(`.lesson-card[data-id="${moduleId}"]`)?.classList.add('done');
     Speech.speak("Lesson complete! Great work!", { rate: 0.9, pitch: 1.1 });
     setTimeout(() => showScene('menu'), 1400);
+  }
+
+  } catch (err) {
+    // Surface to DevTools but don't bubble — preserves "tap = response" UX.
+    console.warn('[click handler]', action, err);
   }
 });
 

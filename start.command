@@ -25,8 +25,13 @@ if [ -z "$PY" ]; then
   exit 1
 fi
 
-# Kill any previous server on the same port
-lsof -ti tcp:${PORT} 2>/dev/null | xargs kill -9 2>/dev/null || true
+# Kill only PYTHON listeners on the port (avoids SIGKILLing unrelated
+# apps that happen to be on 8765 — a dev server, a Node process, etc).
+lsof -ti tcp:${PORT} -sTCP:LISTEN 2>/dev/null | while read pid; do
+  if ps -p "$pid" -o comm= 2>/dev/null | grep -qi python; then
+    kill "$pid" 2>/dev/null || true
+  fi
+done
 
 echo
 echo "================================================================"
@@ -41,5 +46,18 @@ echo
 # Open browser after a short delay
 ( sleep 2; open "$URL" ) &
 
-# Start the server (foreground so closing the window stops it)
-exec "$PY" -m http.server ${PORT}
+# Start the server (foreground so closing the window stops it).
+# Don't `exec` — if the bind fails (port held by another process,
+# TIME_WAIT after the kill above) we want to keep the Terminal open
+# so the user can read the error instead of having the window vanish.
+"$PY" -m http.server "${PORT}"
+status=$?
+if [ "$status" -ne 0 ]; then
+  echo
+  echo "Server exited with status ${status}."
+  echo "If the message above mentions 'Address already in use', another"
+  echo "app is holding port ${PORT}. Try a different terminal window or"
+  echo "wait ~30s for the OS to release it."
+  read -n 1 -s -r -p "Press any key to close..."
+fi
+exit $status

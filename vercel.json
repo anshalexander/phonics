@@ -3,7 +3,7 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "redirects": [
-    { "source": "/", "destination": "/SATPIN_StoryMode.html", "permanent": false }
+    { "source": "/", "destination": "/SATPIN_StoryMode", "permanent": false }
   ],
   "headers": [
     {
@@ -14,13 +14,14 @@
       ]
     },
     {
-      "source": "/(.*)\\.html",
+      "source": "/SATPIN_StoryMode",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=300, must-revalidate" },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
         { "key": "Permissions-Policy", "value": "microphone=(self), camera=()" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains" }
       ]
     }
   ]

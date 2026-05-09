@@ -7,6 +7,9 @@ __pycache__/
 audio_aria_backup/
 audio/.recorded_*
 
+# Internal note — not user-facing
+audio/HOW_TO_USE_YOUR_OWN_VOICE.txt
+
 start.command
 
 CLAUDE.md

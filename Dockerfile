@@ -8,16 +8,17 @@ FROM nginx:1.27-alpine
 RUN rm /etc/nginx/conf.d/default.conf
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Static assets: the HTML artifact and the audio folder. Everything else
-# (Python tools, recordings backups, project docs) is dev-only — see
-# .dockerignore.
+# Static assets. Layer ORDER matters for cache: HTML and nginx.conf rebuild
+# fast and change rarely; audio/ is the bulky volatile layer (re-recordings
+# rebuild it). Putting audio LAST means iterating on HTML doesn't blow away
+# the audio layer cache. Everything not in this list is excluded by
+# .dockerignore (Python tools, backups, docs).
 COPY SATPIN_StoryMode.html /usr/share/nginx/html/SATPIN_StoryMode.html
-COPY audio                  /usr/share/nginx/html/audio
+COPY audio                 /usr/share/nginx/html/audio
 
-# Convenience: serve the artifact at "/" without forcing the user to type
-# the full filename. nginx.conf has the rewrite — this just makes a copy
-# at /index.html as a fallback for environments that ignore the rewrite.
-RUN cp /usr/share/nginx/html/SATPIN_StoryMode.html /usr/share/nginx/html/index.html
+# (No /index.html copy: nginx.conf has `location = / { return 302 ... }`
+# and `index SATPIN_StoryMode.html`, so both / and /SATPIN_StoryMode.html
+# resolve correctly without a stale duplicate.)
 
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
