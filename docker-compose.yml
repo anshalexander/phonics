@@ -1,0 +1,24 @@
+# One-command local dev:
+#   docker compose up
+# Then visit http://localhost:8765 (port matches the original start.command
+# so muscle memory + bookmarks still work).
+services:
+  phonics:
+    build: .
+    image: phonics-playground:local
+    container_name: phonics-playground
+    ports:
+      - "8765:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    # Mount the audio folder live so re-recording phonemes shows up
+    # without rebuilding the image. Comment out to run from the
+    # baked-in image only.
+    volumes:
+      - ./audio:/usr/share/nginx/html/audio:ro
+      - ./SATPIN_StoryMode.html:/usr/share/nginx/html/SATPIN_StoryMode.html:ro

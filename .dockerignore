@@ -1,0 +1,39 @@
+# Dev-only tooling not needed in the deployed bundle
+generate_voices.py
+record_phonemes.py
+__pycache__/
+*.pyc
+
+# Aria backup — not needed in production
+audio_aria_backup/
+
+# Recording markers
+audio/.recorded_*
+
+# Local launcher — not used in container
+start.command
+
+# Docs and audit files — internal, not user-facing
+CLAUDE.md
+CLAUDE_CODE_PROMPT.md
+PHONICS_AUDIT.md
+Phonics_Syllabus_Research.md
+
+# Curriculum extras — keep as separate downloads if needed; not bundled
+SATPIN_Curriculum.docx
+SATPIN_Deck.pptx
+SATPIN_phoneme_preview.wav
+
+# Container/deploy config (not needed inside the image itself)
+Dockerfile
+.dockerignore
+.vercelignore
+docker-compose.yml
+vercel.json
+DEPLOYMENT.md
+
+# OS / editor noise
+.DS_Store
+.claude/
+.vscode/
+.idea/

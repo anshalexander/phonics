@@ -1,0 +1,1844 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Phonics Playground — 10 Lessons</title>
+<style>
+  *,*::before,*::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+  body {
+    font-family: 'Quicksand', 'Nunito', system-ui, -apple-system, sans-serif;
+    color: #1a2733;
+    background: #fff;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; }
+  button:focus-visible { outline: 3px solid #ffc857; outline-offset: 3px; }
+
+  /* ---------- stage / scene ---------- */
+  #stage { position: relative; width: 100%; height: 100vh; overflow: hidden; }
+  .scene {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    padding: 80px 24px 24px;
+    opacity: 0; pointer-events: none;
+    transform: translateY(12px);
+    transition: opacity .4s ease, transform .4s cubic-bezier(.2,.7,.3,1);
+    overflow-y: auto;
+  }
+  .scene.active { opacity: 1; pointer-events: auto; transform: translateY(0); }
+
+  /* ---------- top bar ---------- */
+  .top-bar {
+    position: absolute; top: 16px; left: 16px; right: 16px;
+    display: flex; justify-content: space-between; align-items: center; z-index: 10;
+    pointer-events: none;
+  }
+  .top-bar > * { pointer-events: auto; }
+  .top-title {
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(6px);
+    padding: 10px 22px; border-radius: 99px;
+    font-weight: 800; font-size: 16px; color: #1f5673;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    max-width: 60vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .nav-btn {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: rgba(255,255,255,0.9);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    display: flex; align-items: center; justify-content: center;
+    color: #1f5673; transition: transform .12s, background .2s;
+  }
+  .nav-btn:hover { background: white; transform: scale(1.05); }
+  .nav-btn:disabled { opacity: 0.3; cursor: default; }
+  .nav-btn svg { width: 24px; height: 24px; }
+  .nav-cluster { display: flex; gap: 10px; }
+
+  /* ============================================================ */
+  /*                          COVER                                */
+  /* ============================================================ */
+  .cover {
+    background: radial-gradient(ellipse at top, #fff5d6 0%, #ffd7a8 50%, #ffb892 100%);
+    padding-top: 0;
+    align-items: center; justify-content: center;
+  }
+  .cover h1 {
+    font-size: clamp(48px, 9vw, 100px);
+    font-weight: 900;
+    margin: 0; line-height: 1;
+    color: #1f5673;
+    text-shadow: 0 6px 0 rgba(255,255,255,0.6);
+  }
+  .cover .sub {
+    margin-top: 14px;
+    font-size: clamp(18px, 2.6vw, 28px);
+    font-weight: 700; color: #d35858; font-style: italic;
+  }
+  .cover .tag {
+    margin: 24px auto; max-width: 640px;
+    font-size: clamp(15px, 2vw, 20px); color: #4a5d6c; line-height: 1.4;
+  }
+  .start-button {
+    margin-top: 24px;
+    padding: 22px 56px;
+    background: linear-gradient(180deg, #ff8a5b 0%, #f26b5e 100%);
+    color: white; font-size: clamp(20px, 3vw, 30px); font-weight: 800;
+    border-radius: 999px;
+    box-shadow: 0 8px 0 #c84d40, 0 14px 30px rgba(244,107,94,.4);
+    transition: transform .15s, box-shadow .15s;
+  }
+  .start-button:active { transform: translateY(4px); box-shadow: 0 4px 0 #c84d40; }
+  .parade {
+    margin-top: 32px;
+    display: flex; gap: 14px; flex-wrap: wrap; justify-content: center;
+    max-width: 600px;
+  }
+  .parade .mascot {
+    width: clamp(64px, 10vw, 100px);
+    height: clamp(64px, 10vw, 100px);
+    animation: floaty 3s ease-in-out infinite;
+  }
+  .parade .mascot:nth-child(2n) { animation-delay: -1.5s; }
+  .parade .mascot:nth-child(3n) { animation-delay: -0.8s; }
+  @keyframes floaty {
+    0%,100% { transform: translateY(0) rotate(-2deg); }
+    50%     { transform: translateY(-10px) rotate(2deg); }
+  }
+
+  /* ============================================================ */
+  /*                        LESSON MENU                            */
+  /* ============================================================ */
+  .menu {
+    background: linear-gradient(180deg, #fffbef 0%, #ffe7d6 100%);
+  }
+  .menu .menu-title {
+    font-size: clamp(28px, 4vw, 40px);
+    font-weight: 900; color: #1f5673; margin: 0 0 6px;
+    text-align: center;
+  }
+  .menu .menu-sub {
+    font-size: clamp(14px, 1.8vw, 18px);
+    color: #4a5d6c; margin-bottom: 20px;
+    text-align: center; max-width: 600px;
+  }
+  .lesson-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+    width: min(1100px, 96vw);
+    padding-bottom: 32px;
+  }
+  .lesson-card {
+    background: white;
+    border-radius: 22px;
+    padding: 18px 18px 18px 76px;
+    text-align: left;
+    position: relative;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.05), 0 8px 22px rgba(31,86,115,0.1);
+    transition: transform .12s, box-shadow .12s;
+    cursor: pointer;
+    overflow: hidden;
+  }
+  .lesson-card:hover { transform: translateY(-3px); box-shadow: 0 6px 0 rgba(0,0,0,0.05), 0 14px 28px rgba(31,86,115,0.15); }
+  .lesson-card:active { transform: translateY(2px); }
+  .lesson-card .num {
+    position: absolute;
+    left: 14px; top: 50%;
+    transform: translateY(-50%);
+    width: 50px; height: 50px;
+    border-radius: 50%;
+    color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 22px;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.1);
+  }
+  .lesson-card .lt { font-size: 17px; font-weight: 800; color: #1f5673; margin: 0 0 4px; }
+  .lesson-card .ld { font-size: 13px; color: #6b7c8a; line-height: 1.35; margin: 0; }
+  .lesson-card .stamp {
+    position: absolute;
+    top: 10px; right: 12px;
+    font-size: 18px;
+    color: #5fa063;
+    opacity: 0;
+    transition: opacity .3s;
+  }
+  .lesson-card.done .stamp { opacity: 1; }
+  .lesson-card.done { background: #f0fbf0; }
+
+  /* ============================================================ */
+  /*                       LESSON SCENES                           */
+  /* ============================================================ */
+  .lesson-scene {
+    background: linear-gradient(160deg, var(--bg1, #fff5d6), var(--bg2, #ffe7d6));
+  }
+  .lesson-head {
+    text-align: center;
+    max-width: 720px;
+  }
+  .lesson-head h2 {
+    margin: 0 0 6px;
+    font-size: clamp(24px, 3.5vw, 36px);
+    font-weight: 900; color: #1f5673;
+  }
+  .lesson-head p {
+    margin: 0; color: #4a5d6c;
+    font-size: clamp(14px, 1.8vw, 18px);
+    line-height: 1.4;
+  }
+
+  /* generic letter card grid */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    width: min(820px, 92vw);
+    margin-top: 20px;
+  }
+  @media (max-width: 540px) {
+    .card-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  .letter-card {
+    background: white;
+    border-radius: 22px;
+    padding: 18px 12px 14px;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.06), 0 10px 22px rgba(0,0,0,0.07);
+    text-align: center;
+    transition: transform .12s, box-shadow .12s;
+    cursor: pointer;
+    position: relative;
+    min-height: 180px;
+    display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  }
+  .letter-card:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,0.06); }
+  .letter-card.flash {
+    animation: flashCard 0.4s ease;
+  }
+  @keyframes flashCard {
+    0%   { box-shadow: 0 4px 0 rgba(0,0,0,0.06), 0 10px 22px rgba(0,0,0,0.07); }
+    50%  { box-shadow: 0 4px 0 #ffc857, 0 14px 36px rgba(255,200,87,0.6); transform: scale(1.05); }
+    100% { box-shadow: 0 4px 0 rgba(0,0,0,0.06), 0 10px 22px rgba(0,0,0,0.07); }
+  }
+  .letter-card .letter {
+    font-size: clamp(54px, 7vw, 86px);
+    font-weight: 900;
+    line-height: 1;
+    color: var(--accent, #f26b5e);
+  }
+  .letter-card .sound {
+    font-size: clamp(13px, 1.6vw, 16px);
+    color: #6b7c8a;
+    font-style: italic;
+  }
+  .letter-card .word {
+    font-size: clamp(16px, 2vw, 20px);
+    font-weight: 800;
+    color: #1f5673;
+    margin-top: 4px;
+  }
+  .letter-card .mascot-mini {
+    width: 56px; height: 56px;
+    margin: 4px 0;
+  }
+  .letter-card .rec-btn {
+    position: absolute;
+    top: 8px; right: 8px;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: rgba(244,107,94,0.1);
+    color: #f26b5e;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .2s;
+  }
+  .letter-card .rec-btn:hover { background: rgba(244,107,94,0.2); }
+  .letter-card .rec-btn.recording {
+    background: #f26b5e;
+    color: white;
+    animation: pulseRec 1s ease-in-out infinite;
+  }
+  .letter-card .rec-btn svg { width: 14px; height: 14px; }
+  .letter-card .rec-dot {
+    position: absolute;
+    bottom: 8px; right: 8px;
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #5fa063;
+    opacity: 0;
+    transition: opacity .3s;
+  }
+  .letter-card.has-recording .rec-dot { opacity: 1; }
+  @keyframes pulseRec {
+    0%,100% { box-shadow: 0 0 0 0 rgba(242,107,94,0.7); }
+    50%     { box-shadow: 0 0 0 10px rgba(242,107,94,0); }
+  }
+
+  /* picture cards (for first sound module) */
+  .picture-card {
+    background: white;
+    border-radius: 22px;
+    padding: 18px;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.06), 0 10px 22px rgba(0,0,0,0.07);
+    text-align: center;
+    cursor: pointer;
+    transition: transform .12s;
+    min-height: 200px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .picture-card:active { transform: scale(0.97); }
+  .picture-card.correct {
+    background: #d3f0d3;
+    animation: pulseRight .5s;
+  }
+  .picture-card.wrong {
+    background: #fce0e0;
+    animation: shakeWrong .4s;
+  }
+  @keyframes pulseRight { 0%{transform:scale(1)} 50%{transform:scale(1.08)} 100%{transform:scale(1)} }
+  @keyframes shakeWrong { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+  .picture-card .icon { width: 90px; height: 90px; }
+  .picture-card .label {
+    margin-top: 10px;
+    font-weight: 800;
+    color: #1f5673;
+    font-size: 22px;
+  }
+
+  /* big prompt */
+  .big-prompt {
+    background: white;
+    border-radius: 22px;
+    padding: 18px 28px;
+    margin-top: 16px;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.06);
+    font-size: clamp(18px, 2.4vw, 24px);
+    font-weight: 800;
+    color: #1f5673;
+    text-align: center;
+  }
+  .big-prompt .target {
+    color: #f26b5e;
+    font-size: 1.4em;
+    margin: 0 6px;
+  }
+
+  /* word card (for word family / sight words) */
+  .word-card {
+    background: white;
+    border-radius: 18px;
+    padding: 22px 14px;
+    text-align: center;
+    box-shadow: 0 4px 0 #ffc857, 0 10px 18px rgba(0,0,0,0.07);
+    cursor: pointer;
+    font-size: clamp(28px, 3.6vw, 42px);
+    font-weight: 900;
+    color: #1f5673;
+    transition: transform .12s, background .2s;
+  }
+  .word-card:active { transform: translateY(3px); box-shadow: 0 1px 0 #ffc857; background: #fff8df; }
+  .word-card.flash { animation: flashCard 0.4s; }
+
+  /* blending lab — three letter cards */
+  .blend-lab {
+    margin-top: 20px;
+    display: flex;
+    gap: 18px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .blend-letter {
+    width: clamp(80px, 12vw, 130px);
+    height: clamp(80px, 12vw, 130px);
+    border-radius: 22px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: clamp(48px, 6vw, 80px);
+    font-weight: 900;
+    color: white;
+    box-shadow: 0 6px 0 var(--shadow, #1c6c80);
+    cursor: pointer;
+    transition: transform .12s, box-shadow .12s;
+    user-select: none;
+  }
+  .blend-letter:active { transform: translateY(4px); box-shadow: 0 2px 0 var(--shadow, #1c6c80); }
+  .blend-letter.heard { background: linear-gradient(180deg, #5fa063, #4a8c4f); --shadow: #2e6b3f; }
+  .blend-letter.s, .blend-letter.t, .blend-letter.p { background: linear-gradient(180deg, #ff8a5b, #f26b5e); --shadow: #b04338; }
+  .blend-letter.a, .blend-letter.i, .blend-letter.o, .blend-letter.u, .blend-letter.e { background: linear-gradient(180deg, #45b6c8, #2e8fa5); --shadow: #1c6c80; }
+  .blend-letter.n, .blend-letter.m, .blend-letter.r, .blend-letter.l { background: linear-gradient(180deg, #c285d3, #a06ab2); --shadow: #6d4577; }
+  .blend-letter.d, .blend-letter.g, .blend-letter.b, .blend-letter.c, .blend-letter.k, .blend-letter.h, .blend-letter.f, .blend-letter.j, .blend-letter.v, .blend-letter.w, .blend-letter.x, .blend-letter.y, .blend-letter.z, .blend-letter.q { background: linear-gradient(180deg, #ffd58a, #ffc857); color: #6b4f00; --shadow: #c89a2e; }
+  .blend-arrow {
+    font-size: 36px;
+    color: #1f5673;
+    opacity: 0.5;
+  }
+  .blend-result {
+    margin-top: 20px;
+    background: white;
+    border-radius: 22px;
+    padding: 16px 36px;
+    font-size: clamp(36px, 4.5vw, 56px);
+    font-weight: 900;
+    color: #f26b5e;
+    box-shadow: 0 4px 0 #ffc857;
+    min-width: 200px;
+    text-align: center;
+    cursor: pointer;
+  }
+
+  /* digraph display */
+  .digraph-card {
+    background: white;
+    border-radius: 22px;
+    padding: 24px;
+    text-align: center;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.06), 0 10px 22px rgba(0,0,0,0.07);
+    cursor: pointer;
+    transition: transform .12s;
+  }
+  .digraph-card:active { transform: scale(0.97); }
+  .digraph-card .pair {
+    font-size: clamp(56px, 8vw, 90px);
+    font-weight: 900;
+    color: #f26b5e;
+    line-height: 1;
+  }
+  .digraph-card .one-sound {
+    font-size: 14px;
+    color: #6b7c8a;
+    font-style: italic;
+    margin-top: 4px;
+  }
+  .digraph-card .examples {
+    margin-top: 12px;
+    display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+  }
+  .digraph-card .ex-chip {
+    background: #fff8df;
+    border: 2px solid #ffc857;
+    border-radius: 12px;
+    padding: 6px 14px;
+    font-weight: 800; color: #1f5673;
+    font-size: 16px;
+  }
+
+  /* done button */
+  .done-btn {
+    margin: 24px 0 24px;
+    padding: 16px 44px;
+    background: linear-gradient(180deg, #5fa063, #4a8c4f);
+    color: white;
+    font-size: 22px; font-weight: 800;
+    border-radius: 999px;
+    box-shadow: 0 6px 0 #2e6b3f, 0 12px 22px rgba(0,0,0,0.1);
+    transition: transform .15s, box-shadow .15s;
+  }
+  .done-btn:active { transform: translateY(3px); box-shadow: 0 3px 0 #2e6b3f; }
+
+  /* hint footer */
+  .hint {
+    position: absolute;
+    bottom: 12px; left: 50%; transform: translateX(-50%);
+    font-size: 12px;
+    color: #6b7c8a;
+    font-style: italic;
+    pointer-events: none;
+    text-align: center;
+    width: 90%;
+  }
+
+  /* mascot animations (only used on cover) */
+  .snake-body { animation: slither 4s ease-in-out infinite; transform-origin: 50% 50%; }
+  @keyframes slither { 0%,100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+  .snake-tongue { animation: flick 1.4s ease-in-out infinite; transform-origin: 50% 0%; }
+  @keyframes flick { 0%,80%,100% { transform: scaleY(1); } 40% { transform: scaleY(1.6); } }
+  .ant-leg { animation: legW 0.6s ease-in-out infinite; transform-origin: top; }
+  .ant-leg.l2 { animation-delay: -0.2s; }
+  .ant-leg.l3 { animation-delay: -0.4s; }
+  @keyframes legW { 0%,100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
+  .clock-min { animation: spinSlow 8s linear infinite; transform-origin: 50% 50%; }
+  @keyframes spinSlow { to { transform: rotate(360deg); } }
+  .mouse-tail { animation: tailWag 2.4s ease-in-out infinite; transform-origin: 0% 100%; }
+  @keyframes tailWag { 0%,100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
+  .pig-cheek { animation: puffCheek 2s ease-in-out infinite; transform-origin: 50% 50%; }
+  @keyframes puffCheek { 0%,100% { transform: scale(1); } 50% { transform: scale(1.18); } }
+  .plane-prop { animation: spinFast 0.25s linear infinite; transform-origin: 50% 50%; }
+  @keyframes spinFast { to { transform: rotate(360deg); } }
+
+  /* sparkle */
+  .sparkle {
+    position: absolute; pointer-events: none;
+    width: 60px; height: 60px;
+    color: #ffc857;
+    opacity: 0;
+    animation: sparkleAnim 1s ease-out forwards;
+  }
+  @keyframes sparkleAnim {
+    0%   { opacity: 0; transform: scale(0.4) rotate(0deg); }
+    30%  { opacity: 1; }
+    100% { opacity: 0; transform: scale(1.6) rotate(180deg); }
+  }
+  .confetti { position: absolute; width: 12px; height: 18px; border-radius: 3px; top: -20px; pointer-events: none; }
+
+  /* mute icon stays consistent */
+</style>
+</head>
+<body>
+
+<div id="stage">
+
+  <!-- top bar -->
+  <div class="top-bar" id="topBar" style="display:none">
+    <button class="nav-btn" id="homeBtn" aria-label="Lesson menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg>
+    </button>
+    <div class="top-title" id="topTitle">Phonics Playground</div>
+    <div class="nav-cluster">
+      <button class="nav-btn" id="muteBtn" aria-label="Mute"><svg viewBox="0 0 24 24" fill="currentColor" id="muteIcon"><path d="M3 9v6h4l5 5V4L7 9H3z"/><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg></button>
+    </div>
+  </div>
+
+  <!-- COVER -->
+  <section class="scene cover active" data-scene="cover">
+    <h1>Phonics Playground</h1>
+    <div class="sub">10 little lessons for tiny learners</div>
+    <p class="tag">Tap to hear, tap to play, tap to learn. Every lesson teaches a different way to discover sounds and words. Made for ages 3 to 6 and the grown-ups who love them.</p>
+    <button class="start-button" id="startBtn">Start ▶</button>
+    <div class="parade" id="parade"></div>
+    <div class="hint">Tap "Start" to see all 10 lessons. Sit close and play together.</div>
+  </section>
+
+  <!-- LESSON MENU -->
+  <section class="scene menu" data-scene="menu">
+    <div class="menu-title">Pick a lesson</div>
+    <div class="menu-sub">Each lesson teaches sounds in a different way. Start with #1 and work through, or jump to whichever looks fun. Tap any card.</div>
+    <div class="lesson-grid" id="lessonGrid"></div>
+  </section>
+
+  <!-- lesson scenes injected at runtime -->
+
+</div>
+
+<!-- ========== SVG MASCOTS (only for SATPIN — used on cover) ========== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="m-snake" viewBox="0 0 200 200">
+      <g class="snake-body">
+        <path d="M 50 50 Q 150 60 130 110 Q 80 130 110 165" fill="none" stroke="#5fa063" stroke-width="22" stroke-linecap="round"/>
+        <path d="M 50 50 Q 150 60 130 110 Q 80 130 110 165" fill="none" stroke="#86c08a" stroke-width="10" stroke-linecap="round"/>
+        <ellipse cx="50" cy="50" rx="20" ry="16" fill="#5fa063"/>
+        <ellipse cx="48" cy="48" rx="14" ry="10" fill="#86c08a"/>
+        <circle cx="42" cy="44" r="3.5" fill="#1a2733"/><circle cx="56" cy="44" r="3.5" fill="#1a2733"/>
+        <path class="snake-tongue" d="M 30 52 q -8 6 -4 14 m 4 -14 q -8 8 -12 14" fill="none" stroke="#e35d6a" stroke-width="3"/>
+      </g>
+    </symbol>
+    <symbol id="m-ant" viewBox="0 0 200 200">
+      <g stroke="#322a26" stroke-width="4" stroke-linecap="round">
+        <line class="ant-leg l1" x1="78" y1="110" x2="56" y2="142"/>
+        <line class="ant-leg l2" x1="100" y1="110" x2="100" y2="150"/>
+        <line class="ant-leg l3" x1="122" y1="110" x2="146" y2="142"/>
+      </g>
+      <ellipse cx="60" cy="100" rx="22" ry="20" fill="#7d3f1f"/>
+      <ellipse cx="100" cy="100" rx="20" ry="18" fill="#7d3f1f"/>
+      <ellipse cx="140" cy="100" rx="26" ry="22" fill="#7d3f1f"/>
+      <circle cx="52" cy="98" r="3.5" fill="white"/><circle cx="52" cy="99" r="2" fill="#1a2733"/>
+    </symbol>
+    <symbol id="m-clock" viewBox="0 0 200 200">
+      <circle cx="100" cy="118" r="62" fill="#f26b5e"/>
+      <circle cx="100" cy="118" r="52" fill="#fff5e1"/>
+      <rect x="98" y="74" width="4" height="10" fill="#1f5673"/>
+      <rect x="98" y="152" width="4" height="10" fill="#1f5673"/>
+      <rect x="60" y="116" width="10" height="4" fill="#1f5673"/>
+      <rect x="130" y="116" width="10" height="4" fill="#1f5673"/>
+      <rect x="98" y="92" width="4" height="32" fill="#1f5673" transform="rotate(40 100 118)"/>
+      <g class="clock-min"><rect x="99" y="78" width="2.5" height="46" fill="#1f5673"/></g>
+      <circle cx="100" cy="118" r="5" fill="#1f5673"/>
+    </symbol>
+    <symbol id="m-mouse" viewBox="0 0 200 200">
+      <path class="mouse-tail" d="M 138 130 q 38 6 44 -22" fill="none" stroke="#a085a0" stroke-width="4"/>
+      <ellipse cx="100" cy="130" rx="48" ry="38" fill="#c5acc5"/>
+      <ellipse cx="100" cy="124" rx="40" ry="28" fill="#dcc6dc"/>
+      <circle cx="74" cy="92" r="20" fill="#c5acc5"/><circle cx="124" cy="86" r="20" fill="#c5acc5"/>
+      <circle cx="74" cy="92" r="11" fill="#f4a4b4"/><circle cx="124" cy="86" r="11" fill="#f4a4b4"/>
+      <circle cx="86" cy="118" r="4" fill="#1a2733"/><circle cx="114" cy="116" r="4" fill="#1a2733"/>
+      <ellipse cx="100" cy="130" rx="5" ry="4" fill="#e35d6a"/>
+    </symbol>
+    <symbol id="m-pig" viewBox="0 0 200 200">
+      <ellipse cx="100" cy="115" rx="68" ry="55" fill="#f7b1c0"/>
+      <ellipse cx="100" cy="105" rx="52" ry="36" fill="#fbd0d8"/>
+      <circle class="pig-cheek" cx="68" cy="120" r="14" fill="#f49aac"/>
+      <circle class="pig-cheek" cx="132" cy="120" r="14" fill="#f49aac"/>
+      <ellipse cx="100" cy="125" rx="22" ry="16" fill="#f49aac"/>
+      <ellipse cx="92" cy="124" rx="3.5" ry="5" fill="#7e2c47"/><ellipse cx="108" cy="124" rx="3.5" ry="5" fill="#7e2c47"/>
+      <circle cx="80" cy="98" r="4" fill="#1a2733"/><circle cx="120" cy="98" r="4" fill="#1a2733"/>
+    </symbol>
+    <symbol id="m-plane" viewBox="0 0 200 200">
+      <ellipse cx="100" cy="120" rx="74" ry="14" fill="#5e92b8"/>
+      <path d="M 30 100 Q 80 78 130 90 L 168 96 Q 178 100 168 104 L 130 110 Q 80 122 30 100 Z" fill="#f26b5e"/>
+      <circle cx="120" cy="98" r="6" fill="#fff5e1"/>
+      <circle cx="120" cy="98" r="3.5" fill="#9bd7f0"/>
+      <path d="M 30 100 L 18 78 L 38 90 Z" fill="#f26b5e"/>
+      <g class="plane-prop"><rect x="164" y="78" width="4" height="44" fill="#322a26"/><rect x="146" y="98" width="44" height="4" fill="#322a26"/></g>
+    </symbol>
+    <!-- generic icons for first-sound module -->
+    <symbol id="ic-sun" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="20" fill="#ffc857"/>
+      <g stroke="#ffc857" stroke-width="6" stroke-linecap="round">
+        <line x1="50" y1="14" x2="50" y2="22"/>
+        <line x1="50" y1="78" x2="50" y2="86"/>
+        <line x1="14" y1="50" x2="22" y2="50"/>
+        <line x1="78" y1="50" x2="86" y2="50"/>
+        <line x1="22" y1="22" x2="28" y2="28"/>
+        <line x1="72" y1="22" x2="78" y2="28"/>
+        <line x1="22" y1="78" x2="28" y2="72"/>
+        <line x1="72" y1="78" x2="78" y2="72"/>
+      </g>
+    </symbol>
+    <symbol id="ic-cat" viewBox="0 0 100 100">
+      <ellipse cx="50" cy="60" rx="30" ry="28" fill="#7d6155"/>
+      <polygon points="28,40 22,18 42,32" fill="#7d6155"/>
+      <polygon points="72,40 78,18 58,32" fill="#7d6155"/>
+      <circle cx="40" cy="58" r="3" fill="#1a2733"/><circle cx="60" cy="58" r="3" fill="#1a2733"/>
+      <ellipse cx="50" cy="68" rx="3" ry="2" fill="#e35d6a"/>
+      <line x1="35" y1="72" x2="22" y2="74" stroke="#1a2733" stroke-width="1"/>
+      <line x1="65" y1="72" x2="78" y2="74" stroke="#1a2733" stroke-width="1"/>
+    </symbol>
+    <symbol id="ic-dog" viewBox="0 0 100 100">
+      <ellipse cx="50" cy="62" rx="32" ry="28" fill="#c89668"/>
+      <ellipse cx="30" cy="46" rx="10" ry="16" fill="#a07248" transform="rotate(-20 30 46)"/>
+      <ellipse cx="70" cy="46" rx="10" ry="16" fill="#a07248" transform="rotate(20 70 46)"/>
+      <circle cx="40" cy="58" r="3" fill="#1a2733"/><circle cx="60" cy="58" r="3" fill="#1a2733"/>
+      <ellipse cx="50" cy="68" rx="6" ry="4" fill="#1a2733"/>
+      <path d="M 42 75 q 8 6 16 0" fill="none" stroke="#1a2733" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="ic-apple" viewBox="0 0 100 100">
+      <path d="M 50 28 q -16 -2 -22 14 q -4 22 12 36 q 10 8 10 0 q 0 8 10 0 q 16 -14 12 -36 q -6 -16 -22 -14" fill="#e35d6a"/>
+      <path d="M 50 26 q 8 -8 14 -8" fill="none" stroke="#5fa063" stroke-width="3" stroke-linecap="round"/>
+      <path d="M 50 28 q 6 6 16 4" fill="none" stroke="#5fa063" stroke-width="3" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="ic-fish" viewBox="0 0 100 100">
+      <ellipse cx="48" cy="50" rx="30" ry="18" fill="#45b6c8"/>
+      <polygon points="78,50 92,38 92,62" fill="#45b6c8"/>
+      <circle cx="36" cy="46" r="3" fill="#1a2733"/>
+      <line x1="60" y1="38" x2="64" y2="46" stroke="#2e8fa5" stroke-width="2"/>
+      <line x1="60" y1="62" x2="64" y2="54" stroke="#2e8fa5" stroke-width="2"/>
+    </symbol>
+    <symbol id="ic-moon" viewBox="0 0 100 100">
+      <path d="M 60 18 a 32 32 0 1 0 0 64 a 24 24 0 1 1 0 -64" fill="#ffc857"/>
+    </symbol>
+    <symbol id="ic-bird" viewBox="0 0 100 100">
+      <ellipse cx="50" cy="58" rx="22" ry="20" fill="#5fa063"/>
+      <circle cx="50" cy="38" r="14" fill="#5fa063"/>
+      <polygon points="64,38 78,40 64,46" fill="#ffc857"/>
+      <circle cx="46" cy="36" r="2.5" fill="#1a2733"/>
+      <ellipse cx="36" cy="60" rx="8" ry="14" fill="#4a8c4f" transform="rotate(-25 36 60)"/>
+    </symbol>
+    <symbol id="ic-egg" viewBox="0 0 100 100">
+      <ellipse cx="50" cy="56" rx="22" ry="32" fill="#fff5e1"/>
+      <ellipse cx="44" cy="48" rx="6" ry="10" fill="#fff" opacity="0.6"/>
+    </symbol>
+    <symbol id="ic-rocket" viewBox="0 0 100 100">
+      <path d="M 50 14 q 14 14 14 36 v 22 h -28 v -22 q 0 -22 14 -36" fill="#f26b5e"/>
+      <circle cx="50" cy="42" r="6" fill="#fff5e1"/>
+      <polygon points="36,72 22,86 36,80" fill="#ffc857"/>
+      <polygon points="64,72 78,86 64,80" fill="#ffc857"/>
+      <path d="M 42 76 l 8 16 l 8 -16" fill="#ffc857"/>
+    </symbol>
+    <symbol id="ic-mug" viewBox="0 0 100 100">
+      <rect x="22" y="28" width="48" height="50" rx="6" fill="#c285d3"/>
+      <rect x="70" y="40" width="14" height="22" rx="6" fill="none" stroke="#c285d3" stroke-width="6"/>
+      <ellipse cx="46" cy="32" rx="20" ry="4" fill="#a06ab2"/>
+    </symbol>
+    <symbol id="ic-tree" viewBox="0 0 100 100">
+      <rect x="46" y="62" width="8" height="22" fill="#7d3f1f"/>
+      <circle cx="50" cy="42" r="22" fill="#5fa063"/>
+      <circle cx="36" cy="48" r="14" fill="#4a8c4f"/>
+      <circle cx="64" cy="48" r="14" fill="#4a8c4f"/>
+    </symbol>
+    <symbol id="ic-pig" viewBox="0 0 100 100">
+      <ellipse cx="50" cy="60" rx="32" ry="24" fill="#f7b1c0"/>
+      <ellipse cx="50" cy="62" rx="12" ry="8" fill="#f49aac"/>
+      <circle cx="44" cy="62" r="2" fill="#7e2c47"/><circle cx="56" cy="62" r="2" fill="#7e2c47"/>
+      <circle cx="40" cy="52" r="2.5" fill="#1a2733"/><circle cx="60" cy="52" r="2.5" fill="#1a2733"/>
+      <polygon points="32,42 28,32 38,40" fill="#f49aac"/>
+      <polygon points="68,42 72,32 62,40" fill="#f49aac"/>
+    </symbol>
+    <symbol id="ic-nest" viewBox="0 0 100 100">
+      <ellipse cx="50" cy="62" rx="34" ry="14" fill="#a07248"/>
+      <ellipse cx="50" cy="56" rx="34" ry="10" fill="#7d3f1f"/>
+      <ellipse cx="42" cy="54" rx="6" ry="4" fill="#9bd7f0"/>
+      <ellipse cx="54" cy="52" rx="6" ry="4" fill="#fff5e1"/>
+      <ellipse cx="62" cy="56" rx="5" ry="4" fill="#fbd0d8"/>
+    </symbol>
+  </defs>
+</svg>
+
+<script>
+'use strict';
+
+// =====================================================================
+//                 Audio infrastructure (Speech, Sfx, Phonemes)
+// =====================================================================
+
+const Audio = (() => {
+  let ctx = null;
+  function ensure() {
+    if (!ctx) { try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+    if (ctx && ctx.state === 'suspended') { try { ctx.resume(); } catch (e) {} }
+    return ctx;
+  }
+  return { ensure };
+})();
+
+// =====================================================================
+// AudioBus — single source of truth for "what's currently playing".
+// Fixes the double-voice bug: any new sound cancels the previous one.
+// =====================================================================
+const AudioBus = (() => {
+  let currentEl = null;       // HTMLAudioElement currently playing (if any)
+  let currentSrc = null;      // Web Audio BufferSource currently playing
+
+  function stopAll() {
+    if (currentEl) {
+      try { currentEl.pause(); currentEl.currentTime = 0; } catch (e) {}
+      try { currentEl.src = ''; } catch (e) {}
+      currentEl = null;
+    }
+    if (currentSrc) {
+      try { currentSrc.stop(); } catch (e) {}
+      try { currentSrc.disconnect(); } catch (e) {}
+      currentSrc = null;
+    }
+    try { speechSynthesis.cancel(); } catch (e) {}
+  }
+
+  function setEl(el)   { currentEl  = el; }
+  function setSrc(src) { currentSrc = src; }
+
+  return { stopAll, setEl, setSrc };
+})();
+
+const Speech = (() => {
+  let chosenVoice = null;
+  let muted = false;
+
+  // ---- Web Speech API voice selection ----
+  // Strongly prefer female voices. Names below are MALE on macOS/Chrome —
+  // we exclude them so the fallback never sounds like a robotic man.
+  const MALE_VOICES = /\b(alex|daniel|fred|bruce|jorge|junior|ralph|albert|tom|aaron|reed|david|diego|kyoko|luca|maged|markus|otoya|paulina|takumi|yuri|rocko|sandy|grandpa|grandma|aaron|nicky|angelo|carlos)\b/i;
+  const PREF = [
+    /samantha.*premium/i, /samantha.*enhanced/i,
+    /ava.*premium/i, /ava.*enhanced/i,
+    /allison.*premium/i, /karen.*premium/i, /serena.*premium/i,
+    /microsoft.*aria/i, /microsoft.*jenny/i, /microsoft.*sonia/i,
+    /google.*us.*english/i,
+    /samantha/i, /ava/i, /allison/i, /karen/i, /victoria/i, /susan/i,
+    /female/i,
+  ];
+  function chooseVoice() {
+    if (!('speechSynthesis' in window)) return;
+    const voices = speechSynthesis.getVoices();
+    if (!voices.length) return;
+    const en = voices.filter(v => /^en/i.test(v.lang));
+    const enFemale = en.filter(v => !MALE_VOICES.test(v.name));
+    const pool = enFemale.length ? enFemale : en;
+    for (const re of PREF) {
+      const v = pool.find(v => re.test(v.name));
+      if (v) { chosenVoice = v; return; }
+    }
+    chosenVoice = pool[0] || voices[0];
+  }
+  if ('speechSynthesis' in window) {
+    chooseVoice();
+    speechSynthesis.onvoiceschanged = chooseVoice;
+  }
+
+  // ---- Aria MP3 lookup tables ----
+  // populated by loadSpeechAudio(); plays neural-voice file when text matches.
+  const wordAudio   = {};   // 'cat' -> 'audio/word_cat.mp3'
+  const phraseAudio = {};   // canonical phrase text -> 'audio/p_xxx.mp3'
+
+  // Phrase text -> filename key (matches generate_voices.py PHRASES dict)
+  const PHRASE_KEYS = {
+    "Welcome! Pick a lesson to start.":            'welcome',
+    "Tap any letter to hear its sound.":           'tap_letter',
+    "Tap a pair. Do they rhyme?":                  'tap_pair',
+    "Tap a word. We'll sound it out together.":    'tap_word',
+    "Tap each letter to hear its sound.":          'tap_blend',
+    "These tiny words show up everywhere. Tap to hear.": 'tiny_words',
+    "Two letters, one sound! Tap any pair.":       'two_one',
+    "Listen!":                                     'listen',
+    "Which one?":                                  'which_one',
+    "Yes!":                                        'yes',
+    "Try again!":                                  'try_again',
+    "Yes! They rhyme!":                            'yes_rhyme',
+    "Nope, those don't rhyme.":                    'nope_rhyme',
+    "Recording. Say the sound now.":               'recording_now',
+    "Lesson complete! Great work!":                'lesson_done',
+    "All done! You found every sound!":            'all_found',
+    "Almost! Let's try again.":                    'almost',
+  };
+
+  // The full word list whose MP3s get probed at startup (matches Python WORDS)
+  const WORD_LIST = [
+    'cat','hat','dog','log','sun','fun','pin','win','big','bed',
+    'sat','mat','dim','tap','nap','pat','at','an','in','on',
+    'ant','it','egg','up','run','jam','van','box','yes','zip',
+    'kit','duck','queen','leg','go',
+    'apple','fish','moon','bird','rocket','mug','tree','pig','nest','snake',
+    'the','i','a','to','no','was','my','you','are','all','is',
+    'ship','shop','chop','chin','rich','thin','math','ring','sing','long',
+  ];
+
+  function probe(url) {
+    return new Promise((resolve) => {
+      const a = new window.Audio();
+      let done = false;
+      const finish = (ok) => { if (done) return; done = true; resolve(ok); };
+      a.onloadedmetadata = () => finish(true);
+      a.oncanplay        = () => finish(true);
+      a.onerror          = () => finish(false);
+      a.src = url; try { a.load(); } catch (e) {}
+      setTimeout(() => finish(false), 1500);
+    });
+  }
+
+  // Sight words are rendered without a carrier sentence (just "the.", "to.")
+  // and therefore are never trimmed — they only exist as .mp3. Listing them
+  // explicitly lets us probe .mp3 first for these and .wav first for everyone
+  // else, eliminating the 404 storm at page load. Must mirror the
+  // SIGHT_NO_CARRIER set in generate_voices.py.
+  const SIGHT_MP3_ONLY = new Set([
+    'i','a','the','to','no','is','was','my','you','are','all',
+    'an','at','on','in','it','up','go',
+  ]);
+
+  async function loadSpeechAudio() {
+    let pCount = 0, wCount = 0;
+    const phraseExts = ['mp3', 'wav', 'm4a', 'ogg'];
+    const trimExts   = ['wav', 'mp3', 'm4a', 'ogg'];  // trimmed words → try .wav first
+    const sightExts  = ['mp3', 'wav', 'm4a', 'ogg'];  // sight words → only .mp3 exists
+    for (const [text, key] of Object.entries(PHRASE_KEYS)) {
+      for (const ext of phraseExts) {
+        const url = 'audio/p_' + key + '.' + ext;
+        if (await probe(url)) { phraseAudio[text] = url; pCount++; break; }
+      }
+    }
+    for (const w of WORD_LIST) {
+      const safe = w.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+      const exts = SIGHT_MP3_ONLY.has(w.toLowerCase()) ? sightExts : trimExts;
+      for (const ext of exts) {
+        const url = 'audio/word_' + safe + '.' + ext;
+        if (await probe(url)) { wordAudio[w.toLowerCase()] = url; wCount++; break; }
+      }
+    }
+    console.log('[Speech] loaded ' + pCount + ' phrase + ' + wCount + ' word audio files');
+  }
+
+  function playUrl(url) {
+    return new Promise((resolve) => {
+      if (muted) return resolve();
+      AudioBus.stopAll();              // <-- cancels anything mid-play
+      const a = new window.Audio(url);
+      AudioBus.setEl(a);
+      a.volume = 1;
+      a.onended = () => resolve();
+      a.onerror = () => resolve();
+      const p = a.play();
+      if (p && p.catch) p.catch(() => resolve());
+      setTimeout(() => { void a; resolve(); }, 6000);
+    });
+  }
+
+  function webSpeechSpeak(text, opts = {}) {
+    if (muted || !('speechSynthesis' in window)) return Promise.resolve();
+    return new Promise((resolve) => {
+      try { speechSynthesis.cancel(); } catch (e) {}
+      const u = new SpeechSynthesisUtterance(text);
+      if (chosenVoice) u.voice = chosenVoice;
+      u.rate = opts.rate ?? 0.85;
+      u.pitch = opts.pitch ?? 1.05;
+      u.volume = 1;
+      u.onend = resolve;
+      u.onerror = resolve;
+      try { speechSynthesis.speak(u); } catch (e) { resolve(); }
+    });
+  }
+
+  function speak(text, opts = {}) {
+    if (muted) return Promise.resolve();
+    const t = (text || '').trim();
+    // 1) exact phrase match → Aria MP3
+    if (phraseAudio[t]) return playUrl(phraseAudio[t]);
+    // 2) single word → Aria MP3
+    const wordKey = t.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (wordKey && wordKey === t.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/ /g, '')
+        && wordAudio[wordKey]) {
+      return playUrl(wordAudio[wordKey]);
+    }
+    if (wordAudio[t.toLowerCase()]) return playUrl(wordAudio[t.toLowerCase()]);
+    // 3) fall back to Web Speech API (female-only fallback voice)
+    return webSpeechSpeak(text, opts);
+  }
+
+  function setMuted(m) { muted = m; if (m) try { speechSynthesis.cancel(); } catch (e) {} }
+  function isMuted() { return muted; }
+  return { speak, setMuted, isMuted, loadSpeechAudio };
+})();
+
+const Sfx = (() => {
+  function tone(freq, dur, type='sine', gain=0.15, slide=0) {
+    const c = Audio.ensure(); if (!c) return;
+    const o = c.createOscillator(); const g = c.createGain();
+    o.type = type; o.frequency.value = freq;
+    if (slide) o.frequency.linearRampToValueAtTime(freq+slide, c.currentTime+dur);
+    g.gain.value = 0; g.gain.linearRampToValueAtTime(gain, c.currentTime+0.02);
+    g.gain.linearRampToValueAtTime(0, c.currentTime+dur);
+    o.connect(g); g.connect(c.destination);
+    o.start(); o.stop(c.currentTime+dur+0.05);
+  }
+  return {
+    chime: () => { tone(880,0.18); setTimeout(()=>tone(1320,0.22),120); },
+    pop:   () => tone(540,0.08,'triangle',0.2),
+    happy: () => [523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,0.18,'triangle',0.18),i*110)),
+    sad:   () => { tone(280,0.18,'sine',0.15); setTimeout(()=>tone(220,0.22,'sine',0.15),120); },
+    whoosh:() => tone(220,0.18,'sawtooth',0.05,200),
+  };
+})();
+
+// =====================================================================
+//   PHONEMES — Web Audio formant synthesis (works for all 26 letters)
+// =====================================================================
+const Phonemes = (() => {
+
+  // ---- recorded-audio override ----
+  const realAudio = {};
+
+  function noiseBuf(c, dur) {
+    const buf = c.createBuffer(1, Math.max(1, Math.floor(c.sampleRate * dur)), c.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random()*2-1;
+    return buf;
+  }
+
+  function envelopeGain(c, t0, dur, peak=0.45) {
+    const g = c.createGain();
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(peak, t0 + 0.04);
+    g.gain.linearRampToValueAtTime(peak * 0.9, t0 + dur - 0.06);
+    g.gain.linearRampToValueAtTime(0, t0 + dur);
+    return g;
+  }
+
+  function playVowel(formants, dur, fund=220, t0Off=0, peak=0.45) {
+    return new Promise(resolve => {
+      const c = Audio.ensure(); if (!c) return resolve();
+      AudioBus.stopAll();
+      const t0 = c.currentTime + t0Off;
+      const osc = c.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.value = fund;
+      const lfo = c.createOscillator();
+      const lfoGain = c.createGain();
+      lfo.frequency.value = 5; lfoGain.gain.value = 3;
+      lfo.connect(lfoGain).connect(osc.frequency);
+      const out = envelopeGain(c, t0, dur, peak);
+      const weights = [0.7, 0.5, 0.35];
+      formants.forEach((f, i) => {
+        const bp = c.createBiquadFilter();
+        bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = 8;
+        const fg = c.createGain(); fg.gain.value = weights[i] || 0.3;
+        osc.connect(bp).connect(fg).connect(out);
+      });
+      out.connect(c.destination);
+      osc.start(t0); lfo.start(t0);
+      osc.stop(t0 + dur + 0.03); lfo.stop(t0 + dur + 0.03);
+      setTimeout(resolve, (t0Off + dur) * 1000 + 40);
+    });
+  }
+
+  function playFricative(loFreq, hiFreq, dur, peak=0.32, t0Off=0) {
+    return new Promise(resolve => {
+      const c = Audio.ensure(); if (!c) return resolve();
+      const t0 = c.currentTime + t0Off;
+      const src = c.createBufferSource();
+      src.buffer = noiseBuf(c, dur + 0.05);
+      const bp = c.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = (loFreq + hiFreq) / 2;
+      bp.Q.value = (loFreq + hiFreq) / (hiFreq - loFreq);
+      const out = envelopeGain(c, t0, dur, peak);
+      src.connect(bp).connect(out).connect(c.destination);
+      src.start(t0); src.stop(t0 + dur + 0.05);
+      setTimeout(resolve, (t0Off + dur) * 1000 + 30);
+    });
+  }
+
+  function playPlosive(burstFilter, schwa = [700,1500,2400], t0Off=0) {
+    return new Promise(async resolve => {
+      const c = Audio.ensure(); if (!c) return resolve();
+      const t0 = c.currentTime + t0Off + 0.05;
+      const burst = noiseBuf(c, 0.035);
+      const d = burst.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] *= Math.exp(-i/d.length*4);
+      const src = c.createBufferSource(); src.buffer = burst;
+      const filt = burstFilter(c);
+      const g = c.createGain(); g.gain.value = 0.6;
+      src.connect(filt).connect(g).connect(c.destination);
+      src.start(t0);
+      await playVowel(schwa, 0.16, 220, t0Off + 0.10, 0.30);
+      resolve();
+    });
+  }
+
+  function playNasal(formant, dur, t0Off=0, peak=0.5) {
+    return new Promise(resolve => {
+      const c = Audio.ensure(); if (!c) return resolve();
+      const t0 = c.currentTime + t0Off;
+      const osc = c.createOscillator();
+      osc.type = 'sawtooth'; osc.frequency.value = 200;
+      const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1100;
+      const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = formant; bp.Q.value = 4;
+      const g = envelopeGain(c, t0, dur, peak);
+      osc.connect(lp).connect(bp).connect(g).connect(c.destination);
+      osc.start(t0); osc.stop(t0 + dur + 0.03);
+      setTimeout(resolve, (t0Off + dur) * 1000 + 30);
+    });
+  }
+
+  // map every letter (and digraphs) to a synthesis recipe
+  const RECIPES = {
+    // SATPIN
+    s: () => playFricative(4500, 8000, 0.65),
+    a: () => playVowel([880, 2050, 2900], 0.45),     // /æ/ short A as in ant
+    t: () => playPlosive(c => { const f=c.createBiquadFilter(); f.type='highpass'; f.frequency.value=3500; return f; }),
+    i: () => playVowel([520, 2350, 3000], 0.45),     // /ɪ/ short I as in in
+    p: () => playPlosive(c => { const f=c.createBiquadFilter(); f.type='lowpass'; f.frequency.value=1500; return f; }),
+    n: () => playNasal(320, 0.6),
+    // CKHRMD
+    c: () => playPlosive(c => { const f=c.createBiquadFilter(); f.type='bandpass'; f.frequency.value=2000; f.Q.value=2; return f; }),
+    k: () => playPlosive(c => { const f=c.createBiquadFilter(); f.type='bandpass'; f.frequency.value=2000; f.Q.value=2; return f; }),
+    h: () => playFricative(800, 3000, 0.5, 0.28),
+    r: () => playVowel([390, 1100, 1700], 0.55),     // /r/ approximant — vowel-like
+    m: () => playNasal(220, 0.6),
+    d: () => playPlosive(c => { const f=c.createBiquadFilter(); f.type='highpass'; f.frequency.value=2500; return f; }),
+    // GOULFB
+    g: () => playPlosive(c => { const f=c.createBiquadFilter(); f.type='bandpass'; f.frequency.value=1500; f.Q.value=2; return f; }),
+    o: () => playVowel([600, 950, 2700], 0.5),       // /ɒ/ short O as in on
+    u: () => playVowel([700, 1300, 2500], 0.45),     // /ʌ/ short U as in up
+    l: () => playVowel([300, 1300, 2700], 0.55),     // /l/ approximant
+    f: () => playFricative(2000, 8000, 0.6, 0.28),
+    b: () => playPlosive(c => { const f=c.createBiquadFilter(); f.type='lowpass'; f.frequency.value=1000; return f; }),
+    // remaining
+    j: () => playPlosive(c => { const f=c.createBiquadFilter(); f.type='bandpass'; f.frequency.value=2200; f.Q.value=3; return f; }),
+    v: () => playFricative(700, 4000, 0.5, 0.3),     // /v/ voiced fricative — close enough
+    w: () => playVowel([300, 800, 2500], 0.4),       // /w/ approximant
+    x: () => playFricative(4500, 8000, 0.45),        // /ks/ — falls back to s-ish
+    y: () => playVowel([300, 2300, 2900], 0.4),      // /j/ → ee-ish
+    z: () => playFricative(3500, 7000, 0.55, 0.32),
+    e: () => playVowel([600, 1900, 2600], 0.45),     // /ɛ/ short E as in egg
+    q: () => playPlosive(c => { const f=c.createBiquadFilter(); f.type='bandpass'; f.frequency.value=2000; f.Q.value=2; return f; }),
+    // digraphs
+    sh: () => playFricative(2000, 6000, 0.7, 0.32),  // /ʃ/
+    ch: () => playPlosive(c => { const f=c.createBiquadFilter(); f.type='bandpass'; f.frequency.value=3000; f.Q.value=2; return f; }, [600,1900,2600]),
+    th: () => playFricative(3000, 7000, 0.5, 0.25),  // /θ/
+    ng: () => playNasal(280, 0.65),                  // /ŋ/ — like /n/ but slightly lower
+    ck: () => playPlosive(c => { const f=c.createBiquadFilter(); f.type='bandpass'; f.frequency.value=2000; f.Q.value=2; return f; }),
+    qu: () => playPlosive(c => { const f=c.createBiquadFilter(); f.type='bandpass'; f.frequency.value=2000; f.Q.value=2; return f; }),
+  };
+
+  // realAudio[letter] can be either:
+  //   - a string URL (loaded from audio/ folder via <audio> element — works on file://)
+  //   - an AudioBuffer (in-app mic recording, decoded via Web Audio)
+  function playRecorded(letter) {
+    return new Promise(resolve => {
+      const v = realAudio[letter];
+      if (!v) return resolve(false);
+      if (typeof v === 'string') {
+        // URL playback — uses HTMLAudioElement so it works on file:// origins
+        AudioBus.stopAll();
+        const a = new window.Audio(v);
+        AudioBus.setEl(a);
+        a.volume = 1;
+        a.onended = () => resolve(true);
+        a.onerror = (e) => { console.warn('[Phonics] play error for', letter, e, 'src=', a.src); resolve(false); };
+        try {
+          const p = a.play();
+          if (p && p.then) {
+            p.catch(err => console.warn('[Phonics] play() rejected for', letter, err.name, err.message));
+          }
+        } catch (e) {
+          console.warn('[Phonics] play threw', letter, e);
+          resolve(false);
+        }
+        setTimeout(() => { void a; resolve(true); }, 4000);
+      } else {
+        // decoded AudioBuffer (mic recording)
+        AudioBus.stopAll();
+        const c = Audio.ensure();
+        if (!c) return resolve(false);
+        const src = c.createBufferSource();
+        AudioBus.setSrc(src);
+        src.buffer = v;
+        src.connect(c.destination);
+        src.start(c.currentTime);
+        src.onended = () => resolve(true);
+        setTimeout(() => resolve(true), v.duration * 1000 + 100);
+      }
+    });
+  }
+
+  function playOne(letter, t0Off = 0) {
+    const L = letter.toLowerCase();
+    if (realAudio[L]) return playRecorded(L);
+    const fn = RECIPES[L];
+    return fn ? fn() : Promise.resolve();
+  }
+
+  // Short, snappy version for the blending lab (m4) and m6 phoneme prompts.
+  // Prefers a real-voice recording (Anshul's own /p/ /s/ /æ/ files saved
+  // by record_phonemes.py — short, ~1-1.5 sec, perfect for blending and
+  // for m6 where a long teacher MP3 would give away the answer).
+  // Falls back to formant synth recipes if no recording exists yet.
+  function playShort(letter) {
+    const L = letter.toLowerCase();
+    if (realAudio[L]) return playRecorded(L);
+    const fn = RECIPES[L];
+    return fn ? fn() : Promise.resolve();
+  }
+
+  async function repeat(letter, count = 3, gap = 0.22) {
+    // If we have a real-voice MP3, the file already contains multiple example
+    // words ("Tap. Top. Tin.") — playing it a second time would just be
+    // redundant noise. Synthesized phonemes get played in full repeat count.
+    const isRealAudio = !!realAudio[letter.toLowerCase()];
+    const actualCount = isRealAudio ? 1 : count;
+    for (let i = 0; i < actualCount; i++) {
+      await playOne(letter);
+      if (i < actualCount - 1) await new Promise(r => setTimeout(r, gap * 1000));
+    }
+  }
+
+  // Probe each candidate path with a short-lived <audio> element. This works
+  // on file:// (where fetch() is blocked by CORS) and on http://.
+  function probeUrl(url) {
+    return new Promise((resolve) => {
+      const a = new window.Audio();
+      let done = false;
+      const finish = (ok) => {
+        if (done) return;
+        done = true;
+        a.onloadedmetadata = a.oncanplay = a.onerror = null;
+        resolve(ok);
+      };
+      a.onloadedmetadata = () => finish(true);
+      a.oncanplay        = () => finish(true);
+      a.onerror          = () => finish(false);
+      a.src = url;
+      try { a.load(); } catch (e) {}
+      setTimeout(() => finish(false), 1500);
+    });
+  }
+
+  async function loadFromFolder() {
+    const letters = Object.keys(RECIPES);
+    const exts = ['mp3', 'wav', 'm4a', 'ogg'];
+    let loaded = 0;
+    for (const L of letters) {
+      for (const ext of exts) {
+        const url = 'audio/' + L + '.' + ext;
+        if (await probeUrl(url)) {
+          realAudio[L] = url;
+          loaded++;
+          break;
+        }
+      }
+    }
+    console.log('[Phonics] loaded ' + loaded + ' real-voice files from audio/');
+    // bubble up so UI can refresh recording dots etc.
+    document.dispatchEvent(new CustomEvent('phonics:audio-loaded', { detail: { count: loaded } }));
+  }
+
+  function setRecording(letter, audioBuffer) {
+    realAudio[letter.toLowerCase()] = audioBuffer;
+  }
+  function hasRecording(letter) { return !!realAudio[letter.toLowerCase()]; }
+
+  return { playOne, playShort, repeat, loadFromFolder, setRecording, hasRecording };
+})();
+
+// =====================================================================
+//                       MIC RECORDER
+// =====================================================================
+const Recorder = (() => {
+  let stream = null;
+  let mediaRecorder = null;
+  let chunks = [];
+  let activeLetter = null;
+  let onDoneCb = null;
+
+  async function ensureStream() {
+    if (stream) return stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      return stream;
+    } catch (e) {
+      console.warn('Mic permission denied:', e);
+      return null;
+    }
+  }
+
+  async function start(letter, onDone) {
+    if (mediaRecorder) await stop();
+    activeLetter = letter;
+    onDoneCb = onDone;
+    const s = await ensureStream();
+    if (!s) { onDone && onDone(false); return; }
+    chunks = [];
+    try {
+      mediaRecorder = new MediaRecorder(s);
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const arr = await blob.arrayBuffer();
+        const c = Audio.ensure();
+        try {
+          const decoded = await new Promise((ok, err) => c.decodeAudioData(arr, ok, err));
+          Phonemes.setRecording(activeLetter, decoded);
+          onDoneCb && onDoneCb(true);
+        } catch (e) {
+          console.warn('decode failed', e);
+          onDoneCb && onDoneCb(false);
+        }
+        mediaRecorder = null;
+      };
+      mediaRecorder.start();
+    } catch (e) {
+      console.warn('recorder error', e);
+      onDoneCb && onDoneCb(false);
+    }
+  }
+
+  function stop() {
+    return new Promise(resolve => {
+      if (!mediaRecorder) return resolve();
+      const orig = mediaRecorder.onstop;
+      mediaRecorder.onstop = async (...a) => { await orig(...a); resolve(); };
+      try { mediaRecorder.stop(); } catch (e) { resolve(); }
+    });
+  }
+
+  function isRecording() { return !!mediaRecorder && mediaRecorder.state === 'recording'; }
+
+  return { start, stop, isRecording };
+})();
+
+// =====================================================================
+//                       MODULE DATA
+// =====================================================================
+// Research-backed 10-module sequence — see Phonics_Syllabus_Research.md
+// Aligned with UK Letters and Sounds Phase 1–3 + Reading Rockets / Science
+// of Reading consensus. Lower modules are priority for ages 3–4; modules
+// 8–10 stretch into ages 5–6.
+const MODULES = [
+  {
+    id: 'm1', num: 1, color: '#e35d6a', bg1: '#fff0f4', bg2: '#fcd5dc',
+    title: 'Listen & Rhyme',
+    short: 'Hear when words sound alike',
+    desc: 'Tap a pair of words. Do they sound alike at the end?',
+    type: 'rhyme',
+    pairs: [
+      { a: 'cat', b: 'hat', rhymes: true },
+      { a: 'dog', b: 'log', rhymes: true },
+      { a: 'sun', b: 'fun', rhymes: true },
+      { a: 'cat', b: 'dog', rhymes: false },
+      { a: 'pin', b: 'win', rhymes: true },
+      { a: 'big', b: 'bed', rhymes: false },
+    ],
+  },
+  {
+    id: 'm2', num: 2, color: '#5fa063', bg1: '#eaf6ea', bg2: '#dbecdc',
+    title: 'First Sounds: s, a, t, p',
+    short: 'Your first four letters',
+    desc: 'Tap a letter to hear its sound. With these four you can already read sat, pat, tap.',
+    type: 'letters',
+    letters: [
+      { l: 's', mascot: 'm-snake', say: 'sss', word: 'sat' },
+      { l: 'a', mascot: 'm-ant',   say: 'a',   word: 'at' },
+      { l: 't', mascot: 'm-clock', say: 'tuh', word: 'tap' },
+      { l: 'p', mascot: 'm-pig',   say: 'puh', word: 'pat' },
+    ],
+  },
+  {
+    id: 'm3', num: 3, color: '#2e8fa5', bg1: '#e7f6f6', bg2: '#d4ebf3',
+    title: 'More Sounds: i, n, m, d',
+    short: 'Four more letter sounds',
+    desc: 'Now you can build sit, mat, mad, dim, did, sad — and many more.',
+    type: 'letters',
+    letters: [
+      { l: 'i', mascot: 'm-mouse', say: 'i',   word: 'in' },
+      { l: 'n', mascot: 'm-plane', say: 'nnn', word: 'an' },
+      { l: 'm', say: 'mmm', word: 'mat' },
+      { l: 'd', say: 'duh', word: 'did' },
+    ],
+  },
+  {
+    id: 'm4', num: 4, color: '#6a8ec0', bg1: '#e8f0f7', bg2: '#cfdef0',
+    title: 'Building Words',
+    short: 'Tap each letter, then say the whole word',
+    desc: 'Pick a word. Tap each letter to hear its sound, then tap the word to say it all together.',
+    type: 'blend',
+    words: [
+      { letters: ['s','a','t'], word: 'sat' },
+      { letters: ['p','i','n'], word: 'pin' },
+      { letters: ['m','a','t'], word: 'mat' },
+      { letters: ['d','i','m'], word: 'dim' },
+      { letters: ['t','a','p'], word: 'tap' },
+      { letters: ['n','a','p'], word: 'nap' },
+    ],
+  },
+  {
+    id: 'm5', num: 5, color: '#d68a00', bg1: '#fff8df', bg2: '#ffefb3',
+    title: 'More Sounds: g, o, c, k',
+    short: 'Four more, plus the "o" sound',
+    desc: 'Tap each letter. C and K make the same sound. New vowel "o" as in on, dog, hot.',
+    type: 'letters',
+    letters: [
+      { l: 'g', say: 'guh', word: 'go' },
+      { l: 'o', say: 'o',   word: 'on' },
+      { l: 'c', say: 'kuh', word: 'cat' },
+      { l: 'k', say: 'kuh', word: 'kit' },
+    ],
+  },
+  {
+    id: 'm6', num: 6, color: '#ff9f4a', bg1: '#fff4e0', bg2: '#ffe5c2',
+    title: 'Find the First Sound',
+    short: 'Match the sound to the picture',
+    desc: 'I say a sound. You tap the picture whose name starts with that sound.',
+    type: 'firstSound',
+    rounds: [
+      { target: 's', options: [{ id: 'sun', icon: 'ic-sun', label: 'Sun' }, { id: 'cat', icon: 'ic-cat', label: 'Cat' }, { id: 'dog', icon: 'ic-dog', label: 'Dog' }] },
+      { target: 'c', options: [{ id: 'apple', icon: 'ic-apple', label: 'Apple' }, { id: 'cat', icon: 'ic-cat', label: 'Cat' }, { id: 'fish', icon: 'ic-fish', label: 'Fish' }] },
+      { target: 'm', options: [{ id: 'moon', icon: 'ic-moon', label: 'Moon' }, { id: 'bird', icon: 'ic-bird', label: 'Bird' }, { id: 'egg', icon: 'ic-egg', label: 'Egg' }] },
+      { target: 'r', options: [{ id: 'rocket', icon: 'ic-rocket', label: 'Rocket' }, { id: 'mug', icon: 'ic-mug', label: 'Mug' }, { id: 'tree', icon: 'ic-tree', label: 'Tree' }] },
+      { target: 'p', options: [{ id: 'pig', icon: 'ic-pig', label: 'Pig' }, { id: 'nest', icon: 'ic-nest', label: 'Nest' }, { id: 'sun', icon: 'ic-sun', label: 'Sun' }] },
+    ],
+  },
+  {
+    id: 'm7', num: 7, color: '#a06ab2', bg1: '#f4ecf6', bg2: '#e6d6e8',
+    title: 'More Sounds: ck, e, u, r, h, b, f, l',
+    short: 'More letter sounds to learn',
+    desc: 'New vowels: short "e" and short "u". And ck — two letters that say one sound, like in duck.',
+    type: 'letters',
+    letters: [
+      { l: 'e', say: 'e',   word: 'egg' },
+      { l: 'u', say: 'u',   word: 'up' },
+      { l: 'r', say: 'rrr', word: 'run' },
+      { l: 'h', say: 'huh', word: 'hat' },
+      { l: 'b', say: 'buh', word: 'big' },
+      { l: 'f', say: 'fff', word: 'fun' },
+      { l: 'l', say: 'lll', word: 'leg' },
+      { l: 'ck', say: 'kuh', word: 'duck' },
+    ],
+  },
+  {
+    id: 'm8', num: 8, color: '#5fa063', bg1: '#f0fbf0', bg2: '#dbecdc',
+    title: 'Tricky Little Words',
+    short: 'Words you just have to learn by heart',
+    desc: 'These pop up everywhere — but you can\'t sound them out. Tap each one to hear it.',
+    type: 'sight',
+    words: ['the', 'I', 'a', 'to', 'no', 'go', 'is', 'was', 'my', 'you', 'are', 'all'],
+  },
+  {
+    id: 'm9', num: 9, color: '#c89668', bg1: '#fdf3e7', bg2: '#f5e0c0',
+    title: 'More Sounds: j, v, w, x, y, z, qu',
+    short: 'The rest of the alphabet',
+    desc: 'X says "ks" — like in box. Q always brings U along to say "kw" — like in queen.',
+    type: 'letters',
+    letters: [
+      { l: 'j', say: 'juh', word: 'jam' },
+      { l: 'v', say: 'vvv', word: 'van' },
+      { l: 'w', say: 'wuh', word: 'win' },
+      { l: 'x', say: 'ks',  word: 'box' },
+      { l: 'y', say: 'yuh', word: 'yes' },
+      { l: 'z', say: 'zzz', word: 'zip' },
+      { l: 'qu', say: 'kw',  word: 'queen' },
+    ],
+  },
+  {
+    id: 'm10', num: 10, color: '#c285d3', bg1: '#f4ecf6', bg2: '#e6d6e8',
+    title: 'Two Letters, One Sound',
+    short: 'sh, ch, th, ng — letter teams',
+    desc: 'When two letters team up to make ONE new sound. Tap each pair to hear it.',
+    type: 'digraph',
+    pairs: [
+      { d: 'sh', say: 'shhh', words: ['ship','shop','fish'] },
+      { d: 'ch', say: 'chuh', words: ['chop','chin','rich'] },
+      { d: 'th', say: 'thhh', words: ['the','thin','math'] },
+      { d: 'ng', say: 'nnng', words: ['ring','sing','long'] },
+    ],
+  },
+];
+
+// =====================================================================
+//                       SCENE BUILDING
+// =====================================================================
+
+function svgUse(symbolId) {
+  return '<svg viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet"><use href="#' + symbolId + '"/></svg>';
+}
+function iconSvg(symbolId) {
+  return '<svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet"><use href="#' + symbolId + '"/></svg>';
+}
+
+function buildLessonMenu() {
+  const grid = document.getElementById('lessonGrid');
+  grid.innerHTML = '';
+  MODULES.forEach(M => {
+    const card = document.createElement('button');
+    card.className = 'lesson-card';
+    card.dataset.id = M.id;
+    card.innerHTML = `
+      <div class="num" style="background:${M.color}">${M.num}</div>
+      <div class="lt">${M.title}</div>
+      <div class="ld">${M.short}</div>
+      <div class="stamp">✓</div>
+    `;
+    card.addEventListener('click', () => enterLesson(M.id));
+    grid.appendChild(card);
+  });
+}
+
+function buildAllLessonScenes() {
+  const stage = document.getElementById('stage');
+  MODULES.forEach(M => {
+    const sec = document.createElement('section');
+    sec.className = 'scene lesson-scene';
+    sec.dataset.scene = M.id;
+    sec.style.setProperty('--bg1', M.bg1);
+    sec.style.setProperty('--bg2', M.bg2);
+    sec.innerHTML = renderModule(M);
+    stage.appendChild(sec);
+  });
+}
+
+function renderModule(M) {
+  let body = '';
+  if (M.type === 'letters') {
+    body = `<div class="card-grid">${M.letters.map(l => letterCardHTML(l, M)).join('')}</div>`;
+  } else if (M.type === 'firstSound') {
+    body = `
+      <div class="big-prompt">Tap the picture that starts with <span class="target" id="${M.id}-target">?</span></div>
+      <div class="card-grid" id="${M.id}-cards" style="grid-template-columns:repeat(3,1fr);"></div>
+      <div style="margin-top:14px">
+        <button class="nav-btn" data-action="repeat-prompt" data-id="${M.id}" style="border-radius:99px;width:auto;padding:10px 22px;font-weight:800;color:#1f5673">▶ Hear it again</button>
+      </div>`;
+  } else if (M.type === 'rhyme') {
+    body = `<div class="card-grid" style="grid-template-columns:repeat(2,1fr)">${M.pairs.map((p,i)=>`
+      <div class="picture-card" data-action="rhyme-pair" data-id="${M.id}" data-idx="${i}">
+        <div style="font-size:32px;font-weight:900;color:#1f5673">${p.a}</div>
+        <div style="font-size:18px;color:#6b7c8a;margin:6px 0">+</div>
+        <div style="font-size:32px;font-weight:900;color:#f26b5e">${p.b}</div>
+      </div>`).join('')}</div>
+      <div class="hint" style="position:relative;bottom:auto;left:auto;transform:none;margin-top:14px">Tap a pair. Listen carefully — does the END sound match?</div>`;
+  } else if (M.type === 'blend') {
+    body = `
+      <div class="card-grid" style="grid-template-columns:repeat(2,1fr);max-width:600px">
+        ${M.words.map((w,i)=>`<div class="word-card" data-action="blend-word" data-id="${M.id}" data-idx="${i}">${w.word}</div>`).join('')}
+      </div>
+      <div id="${M.id}-lab" style="margin-top:16px;width:100%;display:flex;flex-direction:column;align-items:center"></div>`;
+  } else if (M.type === 'family') {
+    body = M.families.map(F => `
+      <div style="margin-top:14px;width:100%;text-align:center">
+        <div style="font-size:22px;font-weight:900;color:#1f5673">${F.ending} family</div>
+        <div class="card-grid" style="grid-template-columns:repeat(3,1fr);max-width:540px;margin:8px auto 0">
+          ${F.words.map(w => `<div class="word-card" data-action="say-word" data-word="${w}">${w}</div>`).join('')}
+        </div>
+      </div>
+    `).join('');
+  } else if (M.type === 'sight') {
+    body = `<div class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr));max-width:760px">
+      ${M.words.map(w => `<div class="word-card" data-action="say-word" data-word="${w}">${w}</div>`).join('')}
+    </div>`;
+  } else if (M.type === 'digraph') {
+    body = `<div class="card-grid" style="grid-template-columns:repeat(3,1fr);max-width:760px">
+      ${M.pairs.map(p => `
+        <div class="digraph-card" data-action="say-digraph" data-d="${p.d}">
+          <div class="pair">${p.d}</div>
+          <div class="one-sound">one sound: "${p.say}"</div>
+          <div class="examples">${p.words.map(w => `<span class="ex-chip" data-action="say-word" data-word="${w}">${w}</span>`).join('')}</div>
+        </div>`).join('')}
+    </div>`;
+  }
+
+  return `
+    <div class="lesson-head">
+      <h2>${M.title}</h2>
+      <p>${M.desc}</p>
+    </div>
+    ${body}
+    <button class="done-btn" data-action="lesson-done" data-id="${M.id}">I'm done — back to lessons</button>
+  `;
+}
+
+function letterCardHTML(l, M) {
+  const accent = M.color;
+  const mascot = l.mascot ? `<div class="mascot-mini">${svgUse(l.mascot)}</div>` : '';
+  return `<div class="letter-card" data-action="say-letter" data-letter="${l.l}" style="--accent:${accent}">
+    <button class="rec-btn" data-action="record-letter" data-letter="${l.l}" onclick="event.stopPropagation()" aria-label="Record this sound">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zm5 9a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
+    </button>
+    <div class="letter">${l.l}</div>
+    ${mascot}
+    <div class="sound">${l.say}</div>
+    <div class="word">${l.word}</div>
+    <div class="rec-dot" title="You've recorded this sound"></div>
+  </div>`;
+}
+
+// =====================================================================
+//                       NAVIGATION
+// =====================================================================
+let currentScene = 'cover';
+const completedLessons = new Set();
+
+function showScene(name) {
+  document.querySelectorAll('.scene').forEach(s => {
+    if (s.dataset.scene === name) s.classList.add('active');
+    else s.classList.remove('active');
+  });
+  currentScene = name;
+  Sfx.whoosh();
+
+  // top bar
+  const showBar = name !== 'cover';
+  document.getElementById('topBar').style.display = showBar ? 'flex' : 'none';
+  if (name === 'menu') {
+    document.getElementById('topTitle').textContent = '10 Lessons';
+  } else {
+    const M = MODULES.find(x => x.id === name);
+    document.getElementById('topTitle').textContent = M ? M.title : 'Phonics Playground';
+  }
+
+  // refresh recording dots in case the user just recorded
+  refreshRecDots();
+}
+
+function enterLesson(id) {
+  showScene(id);
+  const M = MODULES.find(m => m.id === id);
+  setTimeout(() => {
+    if (M.type === 'letters') {
+      Speech.speak("Tap any letter to hear its sound.", { rate: 0.9 });
+    } else if (M.type === 'firstSound') {
+      startFirstSoundRound(id, 0);
+    } else if (M.type === 'rhyme') {
+      Speech.speak("Tap a pair. Do they rhyme?", { rate: 0.9 });
+    } else if (M.type === 'blend') {
+      Speech.speak("Tap a word. We'll sound it out together.", { rate: 0.9 });
+    } else if (M.type === 'family') {
+      Speech.speak("These words all end the same way! Tap any to hear.", { rate: 0.9 });
+    } else if (M.type === 'sight') {
+      Speech.speak("These tiny words show up everywhere. Tap to hear.", { rate: 0.9 });
+    } else if (M.type === 'digraph') {
+      Speech.speak("Two letters, one sound! Tap any pair.", { rate: 0.9 });
+    }
+  }, 250);
+}
+
+function refreshRecDots() {
+  document.querySelectorAll('.letter-card').forEach(card => {
+    const L = card.dataset.letter;
+    if (Phonemes.hasRecording(L)) card.classList.add('has-recording');
+    else card.classList.remove('has-recording');
+  });
+}
+
+// =====================================================================
+//                       INTERACTIONS
+// =====================================================================
+
+// First sound module state
+const firstSoundState = {};
+function startFirstSoundRound(moduleId, idx) {
+  const M = MODULES.find(m => m.id === moduleId);
+  if (idx >= M.rounds.length) {
+    Sfx.happy();
+    Speech.speak("All done! You found every sound!", { rate: 0.9, pitch: 1.1 });
+    completedLessons.add(moduleId);
+    setTimeout(() => showScene('menu'), 2200);
+    return;
+  }
+  firstSoundState[moduleId] = idx;
+  const round = M.rounds[idx];
+  document.getElementById(moduleId + '-target').textContent = '"' + (round.target === 'a' ? 'a' : round.target === 'i' ? 'i' : round.target) + '"';
+  const cards = document.getElementById(moduleId + '-cards');
+  // shuffle
+  const opts = [...round.options].sort(() => Math.random() - 0.5);
+  cards.innerHTML = opts.map(o =>
+    `<div class="picture-card" data-action="first-sound-pick" data-id="${moduleId}" data-target="${round.target}" data-pick="${o.id}">
+      <div class="icon">${iconSvg(o.icon)}</div>
+      <div class="label">${o.label}</div>
+    </div>`).join('');
+  // play prompt
+  setTimeout(async () => {
+    await Speech.speak("Listen!", { rate: 0.9 });
+    await new Promise(r => setTimeout(r, 200));
+    // Play the phoneme ONCE. Calling playShort twice while audio/<L>.mp3
+    // is the 4-sec Aria teacher MP3 caused AudioBus.stopAll() to interrupt
+    // the first playback after ~220 ms, so the kid heard "Pee... Pee..."
+    // ("appa appa"). Once Anshul records short pure phonemes, we can
+    // repeat for emphasis — until then, single play.
+    await Phonemes.playShort(round.target);
+    await new Promise(r => setTimeout(r, 200));
+    await Speech.speak("Which one?", { rate: 0.9 });
+  }, 200);
+}
+
+// Blend module state
+const blendState = {};
+function showBlendWord(moduleId, idx) {
+  const M = MODULES.find(m => m.id === moduleId);
+  const W = M.words[idx];
+  blendState[moduleId] = { idx, heardLetters: new Set() };
+  const lab = document.getElementById(moduleId + '-lab');
+  lab.innerHTML = `
+    <div style="font-size:14px;color:#6b7c8a;margin-bottom:8px">Tap each letter, then tap the word</div>
+    <div class="blend-lab">
+      ${W.letters.map((L,i) => `${i>0?'<div class="blend-arrow">+</div>':''}<div class="blend-letter ${L}" data-action="blend-letter" data-id="${moduleId}" data-letter="${L}" data-idx="${i}">${L}</div>`).join('')}
+    </div>
+    <div class="blend-result" data-action="blend-final" data-id="${moduleId}">${W.word}</div>
+  `;
+  Speech.speak("Tap each letter to hear its sound.", { rate: 0.9 });
+}
+
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const action = btn.dataset.action;
+  const id = btn.dataset.id;
+
+  // ---- letter sound modules ----
+  if (action === 'say-letter') {
+    const L = btn.dataset.letter;
+    btn.classList.add('flash');
+    setTimeout(() => btn.classList.remove('flash'), 400);
+    Sfx.pop();
+    sparkleAt(btn);
+    await Phonemes.repeat(L, 2, 0.2);
+  }
+
+  // ---- record a letter ----
+  if (action === 'record-letter') {
+    const L = btn.dataset.letter;
+    if (Recorder.isRecording()) {
+      btn.classList.remove('recording');
+      await Recorder.stop();
+      refreshRecDots();
+      Sfx.chime();
+      // play it back
+      setTimeout(() => Phonemes.playOne(L), 200);
+      return;
+    }
+    btn.classList.add('recording');
+    Speech.speak("Recording. Say the sound now.", { rate: 0.95 });
+    await Recorder.start(L, (success) => {
+      btn.classList.remove('recording');
+      if (success) refreshRecDots();
+    });
+    // auto-stop after 2.5 seconds
+    setTimeout(async () => {
+      if (Recorder.isRecording()) {
+        await Recorder.stop();
+        btn.classList.remove('recording');
+        refreshRecDots();
+        Sfx.chime();
+        setTimeout(() => Phonemes.playOne(L), 200);
+      }
+    }, 2500);
+  }
+
+  // ---- first sound round pick ----
+  if (action === 'first-sound-pick') {
+    const moduleId = id;
+    const target = btn.dataset.target;
+    const pick = btn.dataset.pick;
+    if (pick.startsWith(target)) {
+      btn.classList.add('correct');
+      Sfx.happy();
+      Speech.speak("Yes!", { rate: 1.0, pitch: 1.2 });
+      setTimeout(() => {
+        startFirstSoundRound(moduleId, (firstSoundState[moduleId] || 0) + 1);
+      }, 1400);
+    } else {
+      btn.classList.add('wrong');
+      Sfx.sad();
+      Speech.speak("Try again!", { rate: 0.95 });
+      setTimeout(() => btn.classList.remove('wrong'), 600);
+    }
+  }
+  if (action === 'repeat-prompt') {
+    const moduleId = id;
+    const M = MODULES.find(m => m.id === moduleId);
+    const idx = firstSoundState[moduleId] || 0;
+    const round = M.rounds[idx];
+    if (round) {
+      // "Hear it again" — single play. (Twice with 4-sec Aria audio
+      // caused AudioBus to interrupt the first → "appa appa" stutter.)
+      await Phonemes.playShort(round.target);
+    }
+  }
+
+  // ---- rhyme module ----
+  if (action === 'rhyme-pair') {
+    const moduleId = id;
+    const M = MODULES.find(m => m.id === moduleId);
+    const idx = parseInt(btn.dataset.idx);
+    const pair = M.pairs[idx];
+    Sfx.pop();
+    await Speech.speak(pair.a, { rate: 0.7 });
+    await new Promise(r => setTimeout(r, 250));
+    await Speech.speak(pair.b, { rate: 0.7 });
+    await new Promise(r => setTimeout(r, 350));
+    if (pair.rhymes) {
+      btn.classList.add('correct');
+      Sfx.happy();
+      await Speech.speak("Yes! They rhyme!", { rate: 0.9, pitch: 1.1 });
+    } else {
+      btn.classList.add('wrong');
+      await Speech.speak("Nope, those don't rhyme.", { rate: 0.9 });
+      setTimeout(() => btn.classList.remove('wrong'), 800);
+    }
+  }
+
+  // ---- blend module ----
+  if (action === 'blend-word') {
+    const moduleId = id;
+    const idx = parseInt(btn.dataset.idx);
+    btn.classList.add('flash');
+    setTimeout(() => btn.classList.remove('flash'), 400);
+    showBlendWord(moduleId, idx);
+  }
+  if (action === 'blend-letter') {
+    const L = btn.dataset.letter;
+    btn.classList.add('heard');
+    Sfx.pop();
+    // Use the short formant-synth phoneme — the long teacher-style MP3
+    // takes ~4 seconds and turns blending into a 14-second slog.
+    await Phonemes.playShort(L);
+  }
+  if (action === 'blend-final') {
+    const moduleId = id;
+    const M = MODULES.find(m => m.id === moduleId);
+    const W = M.words[blendState[moduleId].idx];
+    Sfx.chime();
+    // Sound out phonemes (short synth, ~0.5s each) then say the word
+    for (const L of W.letters) { await Phonemes.playShort(L); await new Promise(r => setTimeout(r, 80)); }
+    await new Promise(r => setTimeout(r, 200));
+    await Speech.speak(W.word, { rate: 0.7, pitch: 1.05 });
+  }
+
+  // ---- generic word say ----
+  if (action === 'say-word') {
+    const w = btn.dataset.word;
+    btn.classList.add('flash');
+    setTimeout(() => btn.classList.remove('flash'), 400);
+    Sfx.pop();
+    Speech.speak(w, { rate: 0.7, pitch: 1.05 });
+  }
+
+  // ---- digraphs ----
+  if (action === 'say-digraph') {
+    const d = btn.dataset.d;
+    Sfx.pop();
+    sparkleAt(btn);
+    await Phonemes.repeat(d, 2, 0.25);
+    const M = MODULES.find(m => m.type === 'digraph');
+    const pair = M.pairs.find(p => p.d === d);
+    if (pair) {
+      await new Promise(r => setTimeout(r, 200));
+      // say one example word
+      await Speech.speak(pair.words[0], { rate: 0.7 });
+    }
+  }
+
+  // ---- done with lesson ----
+  if (action === 'lesson-done') {
+    const moduleId = id;
+    completedLessons.add(moduleId);
+    Sfx.happy();
+    document.querySelector(`.lesson-card[data-id="${moduleId}"]`)?.classList.add('done');
+    Speech.speak("Lesson complete! Great work!", { rate: 0.9, pitch: 1.1 });
+    setTimeout(() => showScene('menu'), 1400);
+  }
+});
+
+// =====================================================================
+//                       Confetti / sparkle
+// =====================================================================
+function sparkleAt(el) {
+  const rect = el.getBoundingClientRect();
+  const s = document.createElement('div');
+  s.className = 'sparkle';
+  s.style.left = (rect.left + rect.width/2 - 30) + 'px';
+  s.style.top  = (rect.top  + rect.height/2 - 30) + 'px';
+  s.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.5 7L20 12l-6.5 1.5L12 22l-1.5-8.5L4 12l6.5-3z"/></svg>';
+  document.body.appendChild(s);
+  setTimeout(() => s.remove(), 1100);
+}
+
+// =====================================================================
+//                       BOOT
+// =====================================================================
+function boot() {
+  buildLessonMenu();
+  buildAllLessonScenes();
+
+  // cover parade
+  const parade = document.getElementById('parade');
+  ['m-snake','m-ant','m-clock','m-mouse','m-pig','m-plane'].forEach(id => {
+    const w = document.createElement('div');
+    w.className = 'mascot';
+    w.innerHTML = svgUse(id);
+    parade.appendChild(w);
+  });
+
+  // Probe the audio/ folder immediately (doesn't need user gesture) so the
+  // real-voice MP3s are ready by the time the child taps anything.
+  Phonemes.loadFromFolder();
+  Speech.loadSpeechAudio();
+
+  document.getElementById('startBtn').addEventListener('click', () => {
+    Audio.ensure();
+    Sfx.chime();
+    Speech.speak("Welcome! Pick a lesson to start.", { rate: 0.9, pitch: 1.1 });
+    showScene('menu');
+  });
+
+  // refresh recording-dot indicators whenever the real-voice files finish loading
+  document.addEventListener('phonics:audio-loaded', () => refreshRecDots());
+  document.getElementById('homeBtn').addEventListener('click', () => {
+    if (currentScene === 'menu') showScene('cover');
+    else showScene('menu');
+  });
+
+  // mute
+  const muteBtn = document.getElementById('muteBtn');
+  muteBtn.addEventListener('click', () => {
+    const next = !Speech.isMuted();
+    Speech.setMuted(next);
+    document.getElementById('muteIcon').innerHTML = next
+      ? '<path d="M3 9v6h4l5 5V4L7 9H3z"/><line x1="14" y1="9" x2="22" y2="17" stroke="currentColor" stroke-width="2"/><line x1="22" y1="9" x2="14" y2="17" stroke="currentColor" stroke-width="2"/>'
+      : '<path d="M3 9v6h4l5 5V4L7 9H3z"/><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>';
+  });
+
+  showScene('cover');
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+else boot();
+</script>
+
+</body>
+</html>

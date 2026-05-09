@@ -1,0 +1,68 @@
+HOW TO USE A REAL VOICE (THREE OPTIONS, FROM EASIEST)
+======================================================
+
+OPTION 1 — Use Microsoft Aria neural voice (free, ~30 seconds)
+-----------------------------------------------------------
+A Python script in the parent folder, generate_voices.py, will fetch
+Microsoft's free neural voice (Aria — same voice Edge browser uses for
+Read Aloud) and write all the phoneme audio files into this folder
+automatically. No account, no credit card, no API key needed.
+
+  Step 1: Open Terminal on your Mac
+  Step 2: cd into the outputs folder
+  Step 3: pip3 install edge-tts
+  Step 4: python3 generate_voices.py
+
+That's it. The audio/ folder fills up with .mp3 files and the artifact
+auto-uses them. To try a different voice, edit the VOICE line at the top
+of generate_voices.py (Aria, Jenny, Ava, Sonia, Natasha all work).
+
+OPTION 2 — Record your own voice (5 minutes, gold standard)
+-----------------------------------------------------------
+
+The artifact (SATPIN_StoryMode.html) ships with synthesized phonemes —
+they're phonetically correct but obviously robotic. For a 3-year-old, your
+own warm voice will be far more effective than any synthesizer.
+
+Here's how to swap in your own recordings:
+
+1.  Record yourself saying each of the six SATPIN sounds.
+    Just the pure phoneme, NOT the letter name:
+        s.mp3   →  a sustained hiss:  "ssssss"  (about 1 second)
+        a.mp3   →  short vowel:       "a"  (as in "cat" / "ant", not "ay")
+        t.mp3   →  crisp:             "tuh"  (not "tee")
+        i.mp3   →  short vowel:       "i"  (as in "in" / "it", not "eye")
+        p.mp3   →  puffy:             "puh"  (not "pee")
+        n.mp3   →  sustained hum:     "nnnnn"  (about 1 second)
+
+2.  Save the files in this folder, named exactly:
+        s.mp3
+        a.mp3
+        t.mp3
+        i.mp3
+        p.mp3
+        n.mp3
+    (.wav, .m4a, and .ogg also work)
+
+3.  Open SATPIN_StoryMode.html in your browser. It will automatically
+    pick up the audio files. If a letter has no recording, the synthesized
+    fallback is used for that letter only.
+
+4.  Trim the recordings to start and end with no silence — Audacity
+    (free) or even Voice Memos on iPhone with the trim function works.
+
+TIP: If you record to your phone via Voice Memos:
+  - Record a single phoneme, trim it, share/export as .m4a
+  - Rename to s.m4a / a.m4a / etc.
+  - Drop into this folder
+  - The artifact will use them.
+
+You only have to do this once. Six 1-second recordings, ~5 minutes total.
+
+OPTION 3 — Record IN the artifact (no app switching)
+----------------------------------------------------
+The artifact has a small microphone icon on every letter card. Tap it,
+say the sound, tap again to stop. Your recording becomes that letter's
+audio for the rest of the session. (Doesn't persist — for permanent use,
+go with Option 1 or 2.)
+
